@@ -76,7 +76,7 @@ const DATA: RockData[] = [
     grain: 'fino',
     ucs: [30, 200],
     alias:
-      'limestone travertino calcilutito calcarenito calcirrudito calcario micritico calcario oolitico tufo calcario caliche',
+      'limestone travertino calcilutito calcarenito calcirrudito calcario micritico calcario oolitico caliche',
   },
   {
     n: 'Lamito',
@@ -761,7 +761,7 @@ function findRock(name?: string | null): Rock | null {
 }
 
 // Busca sem acento: começa pelo nome > palavra do nome começa > nome contém >
-// palavra do sinônimo começa > sinônimo contém.
+// palavra do sinônimo começa (só no começo da palavra: "arenito" não acha "calcarenito").
 function searchRocks(query: string, limit = 12): Rock[] {
   const term = normText(query).trim()
   if (!term) return []
@@ -773,7 +773,6 @@ function searchRocks(query: string, limit = 12): Rock[] {
     else if (` ${name.replaceAll(/[()/-]/gu, ' ')}`.includes(` ${term}`)) score = 1
     else if (name.includes(term)) score = 2
     else if (` ${normText(rock.alias)}`.includes(` ${term}`)) score = 3
-    else if (normText(rock.alias).includes(term)) score = 4
     if (score > -1) hits.push({ rock, score, index })
   }
   hits.sort((a, b) => a.score - b.score || a.index - b.index)
