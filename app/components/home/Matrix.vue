@@ -1,26 +1,34 @@
 <script setup lang="ts">
+  import type { Abra } from '#shared/utils/rochas'
+
   const text = {
-    eyebrow: 'Seleção de matriz',
+    eyebrow: 'Seleção de coroa',
     title: 'Qual coroa para a sua rocha?',
     lede: 'Rocha dura pede matriz mais macia: a liga precisa se desgastar no mesmo ritmo em que a rocha gasta os diamantes. Arraste a dureza e veja a matriz responder.',
-    hardness: 'Dureza (Mohs)',
+    hardness: 'Dureza de perfuração (Mohs)',
     abrasion: 'Abrasividade',
     matrix: 'Matriz sugerida',
-    series: 'Série de referência',
+    covers: 'Cobre Mohs',
     full: 'Fazer a seleção completa',
-    note: 'A ferramenta completa considera a rocha pelo nome, diâmetro, granulometria, formação e objetivo — e entrega RPM, WOB, vazão e equivalência entre marcas.',
+    note: 'A ferramenta completa considera a rocha pelo nome, o diâmetro e o testemunho, e entrega a coroa Explotools com canal de água, rotação, peso, vazão e equivalência entre marcas.',
   }
 
   const levels = ['Baixa', 'Média', 'Alta'] as const
+  const keys: Record<(typeof levels)[number], Abra> = {
+    Baixa: 'low',
+    Média: 'medium',
+    Alta: 'high',
+  }
   const mohs = ref([6.5])
   const abrasion = ref<(typeof levels)[number]>('Média')
 
   const hardness = computed(() => mohs.value[0] ?? 6.5)
-  const abra = computed(() => mapAbra(abrasion.value))
-  const matrix = computed(() => computeMatrix(hardness.value, abra.value, 'moderada'))
-  const series = computed(() => decideSeries(hardness.value, abra.value, 'moderada'))
-  const word = computed(() => matrixWord(matrix.value))
-  const cells = Array.from({ length: 9 }, (_, index) => index + 1)
+  // Demonstração com rocha compacta de grão médio: só dureza e abrasividade mudam a matriz.
+  const matrix = computed(() =>
+    selectMatrix(hardness.value, keys[abrasion.value], 'compacta', 'medio'),
+  )
+  const word = computed(() => CLASSES[classOf(hardness.value)].label)
+  const position = computed(() => MATRICES.indexOf(matrix.value))
 </script>
 
 <template>
@@ -45,7 +53,7 @@
               </div>
               <SliderRoot
                 v-model="mohs"
-                :min="1"
+                :min="1.5"
                 :max="10"
                 :step="0.1"
                 aria-labelledby="home-mohs"
@@ -56,12 +64,12 @@
                 </SliderTrack>
                 <SliderThumb
                   class="block size-6 rounded-full border-4 border-furo bg-osso shadow-float transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-red"
-                  aria-label="Dureza Mohs" />
+                  aria-label="Dureza de perfuração (Mohs)" />
               </SliderRoot>
               <div class="mt-2 flex justify-between font-mono text-[0.6875rem] text-faint">
-                <span>1 · talco</span>
-                <span>7 · quartzo</span>
-                <span>10</span>
+                <span>mole</span>
+                <span>dura</span>
+                <span>extrema</span>
               </div>
             </div>
 
@@ -100,31 +108,35 @@
                 leave-active-class="transition duration-150"
                 leave-to-class="-translate-y-6 opacity-0">
                 <span
-                  :key="matrix"
-                  class="display text-[clamp(8rem,18vw,13rem)] leading-[0.78] text-red">
-                  {{ matrix }}
+                  :key="matrix.id"
+                  class="display text-[clamp(7rem,16vw,12rem)] leading-[0.78] text-red">
+                  {{ matrix.id }}
                 </span>
               </Transition>
               <div class="pb-3">
-                <p class="text-title font-semibold capitalize">{{ word }}</p>
+                <p class="text-title font-semibold">{{ word }}</p>
                 <p class="mt-1 font-mono text-[0.8125rem] text-muted">
-                  {{ text.series }}: <span class="text-fg">{{ series.serie }}</span>
-                  <span v-if="series.alt" class="text-fg"> · {{ series.alt }}</span>
+                  {{ text.covers }}:
+                  <span class="text-fg">{{ fmtBR(matrix.lo) }}–{{ fmtBR(matrix.hi) }}</span>
                 </p>
               </div>
             </div>
-            <div class="mt-8 grid grid-cols-9 gap-1.5" aria-hidden="true">
+            <div class="mt-8 grid grid-cols-11 gap-1" aria-hidden="true">
               <span
-                v-for="cell in cells"
-                :key="cell"
+                v-for="(cell, index) in MATRICES"
+                :key="cell.id"
                 class="h-10 rounded-md transition-[background-color,transform] duration-300 ease-spring"
                 :class="
-                  cell === matrix ? 'scale-y-125 bg-red' : cell < matrix ? 'bg-red/35' : 'bg-fg/8'
+                  index === position
+                    ? 'scale-y-125 bg-red'
+                    : index < position
+                      ? 'bg-red/35'
+                      : 'bg-fg/8'
                 " />
             </div>
             <div class="mt-2 flex justify-between font-mono text-[0.6875rem] text-faint">
               <span>1 · liga dura</span>
-              <span>9 · liga macia</span>
+              <span>15 · liga macia</span>
             </div>
           </div>
 
