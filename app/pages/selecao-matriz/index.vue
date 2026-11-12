@@ -10,7 +10,7 @@
       'Ferramenta gratuita da Explotools para escolher a coroa diamantada impregnada certa: matriz, canal de água e parâmetros de operação pela rocha, diâmetro e testemunho.',
     eyebrow: 'Ferramenta Explotools',
     heading: ['Seleção', 'de coroa.'],
-    lede: 'Responda 3 perguntas e toque em Obter recomendação. A ferramenta indica a coroa Explotools, a matriz, o canal de água e os parâmetros de operação.',
+    lede: 'Responda 4 perguntas e toque em Obter recomendação. A ferramenta indica a coroa Explotools, a matriz, o canal de água e os parâmetros de operação.',
     step1: 'Qual é a rocha?',
     step1Lede: 'Digite o nome. A dureza e a abrasividade vêm automaticamente.',
     search: 'Buscar rocha',
@@ -45,15 +45,23 @@
     step2: 'Qual o diâmetro?',
     diameter: 'Diâmetro da coroa',
     step3: 'Como sai o testemunho?',
-    answer: 'Responda as 3 perguntas',
+    step4: 'Onde fica a sondagem?',
+    step4Lede: 'Estado e cidade do furo. Na próxima vez, já vem preenchido.',
+    step4Privacy: 'Usamos a cidade para mapear onde as coroas Explotools trabalham.',
+    uf: 'Estado',
+    city: 'Cidade',
+    cityPlaceholder: 'Digite a cidade…',
+    cityFirst: 'Escolha o estado primeiro',
+    noCity: 'Nenhuma cidade com esse nome neste estado.',
+    answer: 'Responda as 4 perguntas',
     submit: 'Obter recomendação',
     update: 'Atualizar recomendação',
     ready: 'Recomendação pronta',
     readyNote: 'Mudou alguma resposta? O botão fica vermelho de novo.',
     stale: 'Você mudou as respostas. Toque em Atualizar recomendação para ver a coroa certa.',
     empty: 'Sua coroa aparece aqui.',
-    emptyLede: 'Responda as 3 perguntas e toque em “Obter recomendação”.',
-    emptyItems: ['Rocha ou dureza', 'Diâmetro', 'Condição do testemunho'],
+    emptyLede: 'Responda as 4 perguntas e toque em “Obter recomendação”.',
+    emptyItems: ['Rocha ou dureza', 'Diâmetro', 'Condição do testemunho', 'Local da sondagem'],
     copy: 'Copiar link',
     copied: 'Link copiado',
     recent: 'Meu histórico',
@@ -206,12 +214,62 @@
   const size = ref('')
   const cond = ref('')
 
+  /* ===== 4. Local da sondagem ===== */
+  const uf = ref('')
+  const municipio = ref('')
+  const cityTerm = ref('')
+  const cityOpen = ref(false)
+  const cidades = ref<{ codigo: number; nome: string }[]>([])
+  const cidade = computed(
+    () => cidades.value.find((item) => String(item.codigo) === municipio.value) ?? null,
+  )
+  const cityMatches = computed(() => {
+    const query = normText(cityTerm.value).trim()
+    if (!query) return []
+    const starts = cidades.value.filter((item) => normText(item.nome).startsWith(query))
+    const contains = cidades.value.filter(
+      (item) => !normText(item.nome).startsWith(query) && normText(item.nome).includes(query),
+    )
+    return [...starts, ...contains].slice(0, 12)
+  })
+
+  async function loadCidades(sigla: string): Promise<void> {
+    cidades.value = sigla
+      ? await $fetch<{ codigo: number; nome: string }[]>(`/api/municipios/${sigla}`).catch(() => [])
+      : []
+  }
+
+  watch(uf, async (sigla, previous) => {
+    if (previous) {
+      municipio.value = ''
+      cityTerm.value = ''
+    }
+    await loadCidades(sigla)
+  })
+
+  // Nome exibido no campo para o código IBGE escolhido (antes da lista carregar, usa o último local).
+  const lastLocal = ref<LocalSondagem | null>(null)
+  function cityLabel(value: string): string {
+    if (cidade.value && String(cidade.value.codigo) === value) return cidade.value.nome
+    return lastLocal.value && String(lastLocal.value.codigoIbge) === value
+      ? lastLocal.value.cidade
+      : ''
+  }
+
+  watch(cityTerm, (value) => {
+    if (!value.trim()) cityOpen.value = false
+  })
+
   /* ===== Botão Obter recomendação ===== */
   const answered = computed(
-    () => (hardnessValue.value === null ? 0 : 1) + (size.value ? 1 : 0) + (cond.value ? 1 : 0),
+    () =>
+      (hardnessValue.value === null ? 0 : 1) +
+      (size.value ? 1 : 0) +
+      (cond.value ? 1 : 0) +
+      (municipio.value ? 1 : 0),
   )
   const formKey = computed(() =>
-    answered.value < 3
+    answered.value < 4
       ? null
       : JSON.stringify([
           rock.value?.n ?? null,
@@ -219,6 +277,7 @@
           abra.value,
           size.value,
           cond.value,
+          municipio.value,
         ]),
   )
   const fresh = computed(
@@ -226,7 +285,7 @@
   )
   const stale = computed(() => Boolean(result.value) && !fresh.value)
   const goLabel = computed(() => {
-    if (answered.value < 3) return `${text.answer} (${answered.value}/3)`
+    if (answered.value < 4) return `${text.answer} (${answered.value}/4)`
     if (fresh.value) return text.ready
     return result.value ? text.update : text.submit
   })
@@ -234,6 +293,19 @@
   const { data: recent, refresh: refreshRecent } = await useFetch<RecomendacaoResumo[]>(
     '/api/recomendacoes',
     { default: () => [], immediate: loggedIn.value },
+  )
+
+  // Começa com o último local usado pela pessoa (fica no cadastro, vale em qualquer aparelho).
+  watch(
+    recent,
+    (list) => {
+      const last = list.find((item) => item.local)?.local
+      if (!last || uf.value) return
+      lastLocal.value = last
+      uf.value = last.uf
+      municipio.value = String(last.codigoIbge)
+    },
+    { immediate: true },
   )
 
   onMounted(() => {
@@ -252,7 +324,7 @@
   }
 
   async function submit(): Promise<void> {
-    if (answered.value < 3 || loading.value) return
+    if (answered.value < 4 || loading.value) return
     if (fresh.value) {
       await scrollToResult()
       return
@@ -267,6 +339,8 @@
       abrasividade: abra.value,
       diametro: size.value,
       testemunho: cond.value,
+      uf: uf.value,
+      municipio: Number(municipio.value),
     })
     if (!body.success) {
       toast.error(body.issues[0]?.message ?? 'Confira as respostas')
@@ -673,13 +747,81 @@
             </RadioGroupRoot>
           </div>
 
+          <div class="h-px bg-line" />
+
+          <!-- 4. Local da sondagem -->
+          <div>
+            <p class="flex items-center gap-3">
+              <span
+                class="flex size-7 items-center justify-center rounded-lg font-mono text-[0.8125rem] font-semibold"
+                :class="municipio ? 'bg-fg/10 text-fg' : 'bg-red text-osso'">
+                <Icon v-if="municipio" name="ph:check-bold" class="size-3.5" />
+                <template v-else>4</template>
+              </span>
+              <span class="text-title font-semibold">{{ text.step4 }}</span>
+            </p>
+            <p class="mt-2 text-[0.875rem] text-muted">{{ text.step4Lede }}</p>
+            <div class="mt-4 grid gap-2 sm:grid-cols-[11rem_1fr]">
+              <label for="uf" class="sr-only">{{ text.uf }}</label>
+              <select
+                id="uf"
+                v-model="uf"
+                class="h-12 rounded-xl border border-line-strong bg-furo/60 px-3 text-[0.9375rem] outline-none focus:border-red focus:ring-4 focus:ring-red/20">
+                <option value="" disabled class="bg-rocha">{{ text.uf }}</option>
+                <option v-for="item in UFS" :key="item.sigla" :value="item.sigla" class="bg-rocha">
+                  {{ item.sigla }} · {{ item.nome }}
+                </option>
+              </select>
+              <label for="cidade" class="sr-only">{{ text.city }}</label>
+              <ComboboxRoot
+                v-model="municipio"
+                v-model:open="cityOpen"
+                ignore-filter
+                :reset-search-term-on-blur="false"
+                :disabled="!uf"
+                class="relative">
+                <ComboboxAnchor
+                  class="flex h-12 items-center gap-2 rounded-xl border border-line-strong bg-furo/60 px-4 focus-within:border-red focus-within:ring-4 focus-within:ring-red/20 data-disabled:opacity-50">
+                  <Icon name="ph:map-pin" class="size-4 shrink-0 text-faint" />
+                  <ComboboxInput
+                    id="cidade"
+                    v-model="cityTerm"
+                    :display-value="cityLabel"
+                    :placeholder="uf ? text.cityPlaceholder : text.cityFirst"
+                    autocomplete="off"
+                    class="h-full min-w-0 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-faint" />
+                </ComboboxAnchor>
+                <ComboboxPortal>
+                  <ComboboxContent
+                    position="popper"
+                    :side-offset="6"
+                    class="pop z-60 max-h-72 w-(--reka-combobox-trigger-width) overflow-hidden rounded-2xl border border-line-strong bg-rocha-2 shadow-float">
+                    <ComboboxViewport class="max-h-72 overflow-y-auto p-1.5">
+                      <ComboboxEmpty class="p-3 text-[0.8125rem] text-muted">{{
+                        text.noCity
+                      }}</ComboboxEmpty>
+                      <ComboboxItem
+                        v-for="item in cityMatches"
+                        :key="item.codigo"
+                        :value="String(item.codigo)"
+                        class="cursor-pointer rounded-xl px-3 py-2 text-[0.875rem] outline-none data-highlighted:bg-red data-highlighted:text-osso">
+                        {{ item.nome }}
+                      </ComboboxItem>
+                    </ComboboxViewport>
+                  </ComboboxContent>
+                </ComboboxPortal>
+              </ComboboxRoot>
+            </div>
+            <p class="mt-2 text-[0.75rem] text-faint">{{ text.step4Privacy }}</p>
+          </div>
+
           <div>
             <Btn
               type="submit"
               size="lg"
-              :variant="answered < 3 || fresh ? 'ghost' : 'red'"
+              :variant="answered < 4 || fresh ? 'ghost' : 'red'"
               :loading="loading"
-              :disabled="answered < 3 || loading"
+              :disabled="answered < 4 || loading"
               :icon="fresh ? 'ph:check-bold' : 'ph:diamond'"
               class="w-full">
               {{ goLabel }}
@@ -736,13 +878,17 @@
                   :key="item"
                   class="flex items-center gap-2"
                   :class="
-                    [hardnessValue !== null, Boolean(size), Boolean(cond)][index]
+                    [hardnessValue !== null, Boolean(size), Boolean(cond), Boolean(municipio)][
+                      index
+                    ]
                       ? 'text-fg'
                       : 'text-faint'
                   ">
                   <Icon
                     :name="
-                      [hardnessValue !== null, Boolean(size), Boolean(cond)][index]
+                      [hardnessValue !== null, Boolean(size), Boolean(cond), Boolean(municipio)][
+                        index
+                      ]
                         ? 'ph:check-circle-fill'
                         : 'ph:circle'
                     "

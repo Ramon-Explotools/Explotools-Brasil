@@ -64,6 +64,9 @@
       { label: 'Abrasividade', value: PT.abra[r.abra] },
       { label: 'Granulometria', value: PT.grain[r.grain] },
       { label: 'Testemunho', value: PT.cond[r.cond] },
+      ...(props.data.local
+        ? [{ label: 'Local', value: `${props.data.local.cidade}/${props.data.local.uf}` }]
+        : []),
     ]
   })
 
@@ -174,6 +177,7 @@
     const message = quoteDocument(rec.value, input.value, {
       date: formatDate(new Date().toISOString()),
       cliente: user.value?.email,
+      local: props.data.local ? `${props.data.local.cidade}/${props.data.local.uf}` : undefined,
     })
     globalThis.open(
       `https://wa.me/${brand.whatsappPhone}?text=${encodeURIComponent(message)}`,
