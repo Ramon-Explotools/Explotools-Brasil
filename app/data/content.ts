@@ -60,6 +60,8 @@ const brand = {
   promise: 'Qualidade de importado a preço nacional',
   email: 'ramoncuri@explotools.com.br',
   whatsapp: 'https://wa.link/c1di0k',
+  // Mesmo número do wa.link; o wa.me aceita mensagem pronta (cotação da coroa).
+  whatsappPhone: '5521989292111',
   instagram: 'https://www.instagram.com/explotools.brasil',
   diameters: ['BO', 'NO', 'NO2', 'HO', 'PO'],
 }
