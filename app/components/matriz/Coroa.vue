@@ -1,10 +1,13 @@
 <script setup lang="ts">
-  import type { Matrix } from '#shared/utils/matriz.engine'
+  import type { Matrix, Priority } from '#shared/utils/matriz.engine'
   import { brand } from '~/data/content'
 
   const props = defineProps({
     data: { type: Object as PropType<RecomendacaoCoroa>, required: true },
+    editable: { type: Boolean, default: false },
   })
+
+  const emit = defineEmits<{ canal: [recomendacao: RecomendacaoCoroa] }>()
 
   const text = {
     badge: 'Coroa Explotools recomendada',
@@ -23,6 +26,9 @@
     soft: 'liga mais macia',
     waterway: 'Canal de água',
     why: 'Por que',
+    choice:
+      'Nesta rocha dura e compacta, os dois canais servem. Escolha o que pesa mais no seu furo:',
+    chosen: 'Prioridade escolhida:',
     quote: 'Pedir cotação desta coroa',
     quoteNote:
       'O pedido de cotação já leva a ficha completa: coroa, rocha, condições do furo e parâmetros.',
@@ -47,9 +53,47 @@
   const input = computed(() => inputFromEntrada(props.data.entrada))
   const rec = computed(() => recommendCrown(input.value))
 
+  // Coroa gerada pela avaliação de campo só com troca de canal (Turbo ↔ Standard) também é ajuste.
+  const preferMoved = computed(() => Boolean(props.data.parentUid && props.data.entrada.prioridade))
   const adjusted = computed(
-    () => Boolean(rec.value?.fieldShift) || Boolean(props.data.entrada.canalForcado),
+    () =>
+      Boolean(rec.value?.fieldShift) ||
+      Boolean(props.data.entrada.canalForcado) ||
+      preferMoved.value,
   )
+
+  const choices: { value: Priority; title: string; lede: string }[] = [
+    {
+      value: 'vida',
+      title: 'Priorizar vida útil',
+      lede: 'Standard: mais diamante na face, a coroa dura mais',
+    },
+    {
+      value: 'avanco',
+      title: 'Priorizar avanço',
+      lede: 'Turbo: corta com menos peso e avança mais, mas gasta mais rápido',
+    },
+  ]
+  const canChoose = computed(() => props.editable && props.data.status === 'aguardando')
+  const saving = ref(false)
+  const toast = useToast()
+
+  async function choose(value: unknown): Promise<void> {
+    if (value !== 'vida' && value !== 'avanco') return
+    if (saving.value || !rec.value || value === rec.value.prefer) return
+    saving.value = true
+    try {
+      const recomendacao = await $fetch<RecomendacaoCoroa>(
+        `/api/recomendacoes/${props.data.uid}/canal`,
+        { method: 'PUT', body: { prioridade: value } },
+      )
+      emit('canal', recomendacao)
+    } catch (error) {
+      toast.fail(error)
+    } finally {
+      saving.value = false
+    }
+  }
 
   function range(matrix: Matrix): string {
     return `${fmtBR(matrix.lo)}–${fmtBR(matrix.hi)}`
@@ -79,7 +123,9 @@
         `Matriz ${r.baseMatrix.id} → ${r.matrix.id} (${r.fieldShift > 0 ? text.soft : text.hard})`,
       )
     }
-    if (props.data.entrada.canalForcado) parts.push(`canal de água ${r.waterway.type}`)
+    if (props.data.entrada.canalForcado || preferMoved.value) {
+      parts.push(`canal de água ${r.waterway.type}`)
+    }
     return `${parts.join(' · ')}.`
   })
 
@@ -115,6 +161,11 @@
         ? `Ajuste pela regra da tabela: ${d.shifts.map((s) => `${s.why} (${s.d > 0 ? 'sobe' : 'desce'} uma)`).join(' · ')}${d.clamped ? `, mantendo a matriz dentro da faixa de dureza${d.brokenAbr ? ' (em rocha quebrada e abrasiva pode descer uma além)' : ''}` : ''}.`
         : 'Sem ajuste: condição, abrasividade e granulometria não pedem mudança.',
     ]
+    if (r.waterway.options.length > 1) {
+      list.push(
+        `Rocha dura e compacta: os canais Standard (mais vida útil) e Turbo (mais avanço) servem; a escolha é sua. Prioridade: ${PT.prefer[r.prefer]}.`,
+      )
+    }
     if (adjusted.value) list.push(`Ajuste de campo pela sua avaliação: ${adjustText.value}`)
     list.push(
       `Resultado: Matriz ${r.matrix.id}. Canal de água ${r.waterway.type} (granulometria ${PT.grain[r.grain]}, testemunho ${PT.cond[r.cond]}, diâmetro ${r.size}).`,
@@ -126,18 +177,25 @@
     const r = rec.value
     const up = r?.adjust.up ? `matriz ${r.adjust.up}` : text.soft
     const down = r?.adjust.down ? `matriz ${r.adjust.down}` : text.hard
+    const turbo = r?.waterway.type === 'Turbo'
+    const turboFree = Boolean(r?.waterway.options.includes('Turbo')) && !turbo
     return [
       {
         sintoma: 'Face polida (lisa), sem avanço',
         causa: 'Liga dura demais para a rocha; peso baixo com rotação alta',
         acao: 'Aumente o peso por 30–60 s; reduza a rotação 10–15%',
-        ajuste: `Se repetir, suba para ${up}`,
+        ajuste:
+          !r?.adjust.up && turboFree
+            ? 'Se repetir, troque para o canal Turbo'
+            : `Se repetir, suba para ${up}`,
       },
       {
         sintoma: 'Desgaste rápido da coroa',
         causa: 'Liga macia demais ou rocha mais abrasiva que o previsto; pouca água',
         acao: 'Evite o topo da faixa de rotação; aumente a vazão',
-        ajuste: `Se repetir, desça para ${down}`,
+        ajuste: turbo
+          ? 'Se repetir, volte para o canal Standard'
+          : `Se repetir, desça para ${down}`,
       },
       {
         sintoma: 'Vibração',
@@ -294,6 +352,29 @@
             <p class="label text-fg/60">{{ text.waterway }}</p>
             <p class="mt-3 display text-[2.25rem] leading-none">{{ rec.waterway.type }}</p>
             <p class="mt-1 font-mono text-[0.75rem] text-faint">{{ rec.waterway.trigger }}</p>
+            <template v-if="rec.waterway.options.length > 1">
+              <template v-if="canChoose">
+                <p id="canal-escolha" class="mt-4 text-[0.8125rem] text-muted">{{ text.choice }}</p>
+                <RadioGroupRoot
+                  :model-value="rec.prefer"
+                  :disabled="saving"
+                  aria-labelledby="canal-escolha"
+                  class="mt-2 grid gap-2"
+                  @update:model-value="choose">
+                  <RadioGroupItem
+                    v-for="option in choices"
+                    :key="option.value"
+                    :value="option.value"
+                    class="rounded-2xl border p-3 text-left transition-colors data-[state=checked]:border-red data-[state=checked]:bg-red/10 data-[state=unchecked]:border-line-strong data-[state=unchecked]:hover:border-fg/50">
+                    <span class="block text-[0.9375rem] font-semibold">{{ option.title }}</span>
+                    <span class="block text-[0.75rem] text-muted">{{ option.lede }}</span>
+                  </RadioGroupItem>
+                </RadioGroupRoot>
+              </template>
+              <p v-else class="mt-3 text-[0.8125rem] text-muted">
+                {{ text.chosen }} <b class="text-fg/90">{{ PT.prefer[rec.prefer] }}</b>
+              </p>
+            </template>
             <p class="mt-4 text-[0.875rem] text-fg/85">
               <b>{{ text.why }} {{ rec.waterway.type }}:</b> {{ rec.waterway.reason }}
             </p>

@@ -123,7 +123,7 @@
     },
     {
       q: 'Qual canal de água usar?',
-      a: 'Standard para rocha compacta e de grão fino: tem mais diamantes na face e dura mais. Wide para rocha de grão grosso, fraturada ou quebrada: dá mais vazão e penetra mais. Lateral/Superflush para formação friável, que lava o testemunho ou perde circulação. Wide e Superflush são indicados a partir do diâmetro N.',
+      a: 'Standard para rocha compacta e de grão fino: tem mais diamantes na face e dura mais. Em rocha dura e compacta, você escolhe entre Standard (mais vida útil) e Turbo (menos área de contato: avança mais, mas gasta mais rápido). Wide para rocha de grão grosso, fraturada ou quebrada: dá mais vazão e penetra mais. Lateral/Superflush para formação friável, que lava o testemunho ou perde circulação. Turbo, Wide e Superflush são indicados a partir do diâmetro N.',
     },
     {
       q: 'Como funciona o histórico e a avaliação?',
@@ -849,8 +849,10 @@
               v-if="result"
               :key="result.uid"
               :data="result"
+              editable
               :class="stale ? 'pointer-events-none opacity-40 grayscale' : ''"
-              :aria-hidden="stale">
+              :aria-hidden="stale"
+              @canal="(recomendacao) => (result = recomendacao)">
               <template #actions>
                 <Btn variant="ghost" icon="ph:link" @click="share">{{ text.copy }}</Btn>
               </template>

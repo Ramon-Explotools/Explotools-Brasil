@@ -46,7 +46,11 @@
       </NuxtLink>
 
       <Reveal v-if="coroa" class="mt-6">
-        <MatrizCoroa :key="coroa.uid" :data="coroa">
+        <MatrizCoroa
+          :key="coroa.uid"
+          :data="coroa"
+          :editable="owner"
+          @canal="(recomendacao) => (data = recomendacao)">
           <template v-if="owner" #feedback>
             <MatrizAvaliacao :data="coroa" @avaliada="evaluated" />
           </template>

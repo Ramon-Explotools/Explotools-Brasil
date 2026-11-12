@@ -22,6 +22,7 @@ export const DIAMETROS = ['BO', 'NO', 'NO2', 'HO', 'PO'] as const
 export const TESTEMUNHOS = ['compacta', 'fraturada', 'friavel'] as const
 export const AVALIACOES = ['atendeu', 'ajustada'] as const
 export const PROBLEMAS = ['polindo', 'desgaste', 'lavando', 'outro'] as const
+export const PRIORIDADES = ['vida', 'avanco'] as const
 
 export function useRecomendacaoSchema() {
   const recomendacaoSchema = object(
@@ -51,7 +52,11 @@ export function useRecomendacaoSchema() {
     problema: optional(picklist(PROBLEMAS, 'Diga o que aconteceu no furo')),
   })
 
-  return { recomendacaoSchema, avaliacaoSchema }
+  const canalSchema = object({
+    prioridade: picklist(PRIORIDADES, 'Escolha entre vida útil e avanço'),
+  })
+
+  return { recomendacaoSchema, avaliacaoSchema, canalSchema }
 }
 
 export type RecomendacaoSchema = InferInput<
