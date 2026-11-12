@@ -1,4 +1,5 @@
-import type { BoaPraticaRow, DiagRow } from '#shared/utils/matriz.engine'
+import type { Entrada, Size, Waterway } from '#shared/utils/matriz.engine'
+import type { Abra, Grain, RockClass } from '#shared/utils/rochas'
 
 export interface LeadRow {
   _id: string
@@ -20,9 +21,26 @@ export interface AdminRow {
   self: boolean
 }
 
-export interface RecomendacaoMongo {
+// Linhas das tabelas da recomendação antiga (versão 1, matriz 1–9).
+export interface DiagRow {
+  sintoma: string
+  causa: string
+  acao: string
+  ajuste: string
+}
+
+export interface BoaPraticaRow {
+  parametro: string
+  regra: string
+  ajuste: string
+  obs: string
+}
+
+// Recomendação antiga (matriz 1–9). Continua no banco e abre pelo link.
+export interface RecomendacaoLegada {
   uid: string
   email: string
+  versao?: 1
   rocha?: string
   mohs: number
   eqc: number
@@ -57,9 +75,47 @@ export interface RecomendacaoMongo {
   createdAt?: string
 }
 
+export type StatusCoroa = 'aguardando' | 'atendeu' | 'ajustada'
+
+// Recomendação da coroa Explotools (versão 2, escala 1–15). A entrada recalcula a coroa;
+// o resultado guarda o que foi mostrado, para análise.
+export interface RecomendacaoCoroa {
+  uid: string
+  email: string
+  versao: 2
+  rocha: string
+  matriz: string
+  diametro: Size
+  entrada: Entrada
+  resultado: {
+    matriz: string
+    canal: Waterway
+    dureza: number
+    classe: RockClass
+    abrasividade: Abra
+    granulometria: Grain
+    manual: boolean
+  }
+  status: StatusCoroa
+  problema: string | null
+  avaliadoEm: string | null
+  parentUid: string | null
+  createdAt: string
+}
+
+export type RecomendacaoMongo = RecomendacaoLegada | RecomendacaoCoroa
+
 export interface RecomendacaoResumo {
   uid: string
   rocha: string
   matriz: string
+  diametro: string
+  versao: number
+  status: StatusCoroa | null
   createdAt: string
+}
+
+export interface AvaliacaoResposta {
+  recomendacao: RecomendacaoCoroa
+  ajustada: RecomendacaoCoroa | null
 }
