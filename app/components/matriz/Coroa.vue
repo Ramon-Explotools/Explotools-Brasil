@@ -46,6 +46,7 @@
     brandsNote:
       'Alinhado pela mesma dureza na escala Mohs, que é o eixo publicado por todas as marcas. Confirme no catálogo de cada fabricante.',
     rockless: 'Rocha não listada',
+    yours: ' · informada por você',
     line: 'Ver a linha completa de acessórios Explotools',
   }
 
@@ -105,8 +106,14 @@
     return [
       { label: 'Rocha', value: r.rock?.n ?? text.rockless },
       { label: 'Dureza', value: `${CLASSES[r.cls].label} · Mohs ${fmtBR(r.H)}` },
-      { label: 'Abrasividade', value: PT.abra[r.abra] },
-      { label: 'Granulometria', value: PT.grain[r.grain] },
+      {
+        label: 'Abrasividade',
+        value: `${PT.abra[r.abra]}${r.rock && r.abra !== r.rock.abra ? text.yours : ''}`,
+      },
+      {
+        label: 'Granulometria',
+        value: `${PT.grain[r.grain]}${r.rock && r.grain !== r.rock.grain ? text.yours : ''}`,
+      },
       { label: 'Testemunho', value: PT.cond[r.cond] },
       ...(props.data.local
         ? [{ label: 'Local', value: `${props.data.local.cidade}/${props.data.local.uf}` }]

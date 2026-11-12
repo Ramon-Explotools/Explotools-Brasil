@@ -67,6 +67,7 @@ interface CrownInput {
   cond?: Cond | null
   manualH?: number | null
   abra?: Abra | null
+  grain?: Grain | null
   matrixShift?: number
   forceWaterway?: Waterway | null
   prefer?: Priority | null
@@ -103,6 +104,7 @@ interface Entrada {
   ajusteMatriz: number
   canalForcado: Waterway | null
   prioridade: Priority | null
+  granulometria: Grain | null
 }
 
 /* Faixa de dureza (Mohs de perfuração) coberta por cada matriz, medida no guia
@@ -399,7 +401,7 @@ function recommendCrown(input: CrownInput): CrownRec | null {
   }
 
   const abra = input.abra ?? rock?.abra ?? 'medium'
-  const grain = rock?.grain ?? 'medio'
+  const grain = input.grain ?? rock?.grain ?? 'medio'
   const cls = manual || !rock ? classOf(H) : rock.cls
   const decision = matrixDecision(H, abra, cond, grain)
   const shift = input.matrixShift ?? 0
@@ -547,6 +549,7 @@ function makeEntrada(input: CrownInput, rec: CrownRec): Entrada {
     ajusteMatriz: input.matrixShift ?? 0,
     canalForcado: input.forceWaterway ?? null,
     prioridade: input.prefer ?? null,
+    granulometria: input.grain ?? null,
   }
 }
 
@@ -560,6 +563,7 @@ function inputFromEntrada(entrada: Entrada): CrownInput {
     matrixShift: entrada.ajusteMatriz,
     forceWaterway: entrada.canalForcado,
     prefer: entrada.prioridade ?? null,
+    grain: entrada.granulometria ?? null,
   }
 }
 
@@ -597,6 +601,10 @@ function quoteDocument(
     `• Canal de água: ${rec.waterway.type}${rec.waterway.options.length > 1 ? ` (prioridade: ${PT.prefer[rec.prefer]})` : ''}`,
     '• Quantidade: (informar)',
   )
+  let grainNote = ''
+  if (rec.rock) {
+    grainNote = rec.grain === rec.rock.grain ? ' (típica da rocha)' : ' (ajustada pelo usuário)'
+  }
   let abraNote = ''
   if (rec.rock) {
     abraNote =
@@ -610,7 +618,7 @@ function quoteDocument(
     `• Rocha: ${rec.rock ? rec.rock.n : 'não listada'}`,
     `• Dureza de perfuração: ${CLASSES[rec.cls].label} (Mohs ${fmtBR(rec.H)})${rec.manual ? ' — definida manualmente' : ''}`,
     `• Abrasividade: ${PT.abra[rec.abra]}${abraNote}`,
-    `• Granulometria: ${PT.grain[rec.grain]}`,
+    `• Granulometria: ${PT.grain[rec.grain]}${grainNote}`,
     `• Testemunho: ${PT.cond[rec.cond]}`,
   )
   if (meta.local) lines.push(`• Local da sondagem: ${meta.local}`)

@@ -83,6 +83,7 @@ const EntradaSchema = new Schema(
     ajusteMatriz: { type: Number, required: true, default: 0 },
     canalForcado: { type: String, required: false, default: null },
     prioridade: { type: String, required: false, default: null },
+    granulometria: { type: String, required: false, default: null },
   },
   { _id: false },
 )

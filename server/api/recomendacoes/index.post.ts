@@ -2,7 +2,7 @@ const { recomendacaoSchema } = useRecomendacaoSchema()
 
 export default defineEventHandler(async (event): Promise<RecomendacaoCoroa> => {
   const { email } = await requireLead(event)
-  const { rocha, durezaManual, abrasividade, diametro, testemunho, uf, municipio } =
+  const { rocha, durezaManual, abrasividade, granulometria, diametro, testemunho, uf, municipio } =
     await validBody(event, recomendacaoSchema)
 
   const rock = findRock(rocha)
@@ -26,6 +26,7 @@ export default defineEventHandler(async (event): Promise<RecomendacaoCoroa> => {
       cond: testemunho,
       manualH: durezaManual ?? null,
       abra: abrasividade ?? null,
+      grain: granulometria ?? null,
     },
     local,
   )
