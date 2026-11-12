@@ -43,6 +43,10 @@
     usersLede: 'Quem pode entrar no painel. Só administradores criam novos acessos.',
     you: 'Você',
     since: 'Desde',
+    removeRec: 'Excluir recomendação',
+    removeRecTitle: 'Excluir recomendação?',
+    removeRecText:
+      'A recomendação sai do histórico do cliente, das contagens e do mapa. Não dá para desfazer.',
     removeUser: 'Excluir usuário',
     removeUserTitle: 'Excluir usuário?',
     removeUserText: 'Essa pessoa perde o acesso ao painel imediatamente.',
@@ -162,6 +166,14 @@
     },
   })
 
+  const removingRec = ref<{ uid: string; rocha: string } | null>(null)
+  const confirmRec = computed({
+    get: () => removingRec.value !== null,
+    set: (value: boolean) => {
+      if (!value) removingRec.value = null
+    },
+  })
+
   const confirmAdmin = computed({
     get: () => removingAdmin.value !== null,
     set: (value: boolean) => {
@@ -175,6 +187,22 @@
     try {
       toast.success(await $fetch(`/api/leads/${removing.value._id}`, { method: 'DELETE' }))
       removing.value = null
+      await refreshLeads()
+    } catch (error) {
+      toast.fail(error)
+    } finally {
+      busy.value = false
+    }
+  }
+
+  async function removeRec(): Promise<void> {
+    if (!removingRec.value) return
+    busy.value = true
+    try {
+      toast.success(
+        await $fetch(`/api/recomendacoes/${removingRec.value.uid}`, { method: 'DELETE' }),
+      )
+      removingRec.value = null
       await refreshLeads()
     } catch (error) {
       toast.fail(error)
@@ -438,13 +466,22 @@
                               {{ formatDate(rec.date) }}
                             </p>
                           </div>
-                          <NuxtLink
-                            :to="`/selecao-matriz/${rec.uid}`"
-                            target="_blank"
-                            class="inline-flex h-9 items-center gap-2 rounded-full border border-line-strong px-4 text-[0.8125rem] font-semibold hover:border-red hover:text-red">
-                            {{ text.open }}
-                            <Icon name="ph:arrow-square-out" class="size-4" />
-                          </NuxtLink>
+                          <div class="flex items-center gap-2">
+                            <NuxtLink
+                              :to="`/selecao-matriz/${rec.uid}`"
+                              target="_blank"
+                              class="inline-flex h-9 items-center gap-2 rounded-full border border-line-strong px-4 text-[0.8125rem] font-semibold hover:border-red hover:text-red">
+                              {{ text.open }}
+                              <Icon name="ph:arrow-square-out" class="size-4" />
+                            </NuxtLink>
+                            <button
+                              type="button"
+                              class="flex size-9 items-center justify-center rounded-full border border-line-strong text-muted hover:border-red hover:text-red"
+                              :aria-label="`${text.removeRec}: ${rec.rocha || `Recomendação ${index + 1}`}`"
+                              @click="removingRec = rec">
+                              <Icon name="ph:trash" class="size-4" />
+                            </button>
+                          </div>
                         </li>
                       </ol>
                     </td>
@@ -547,6 +584,12 @@
       :description="text.removeText"
       :loading="busy"
       @confirm="removeLead" />
+    <AdmConfirm
+      v-model:open="confirmRec"
+      :title="text.removeRecTitle"
+      :description="text.removeRecText"
+      :loading="busy"
+      @confirm="removeRec" />
     <AdmConfirm
       v-model:open="confirmAdmin"
       :title="text.removeUserTitle"
