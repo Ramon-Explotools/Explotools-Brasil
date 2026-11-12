@@ -1,229 +1,802 @@
 /* ===========================================================================
-   BASE DE LITOLOGIAS
-   Campos derivados da mineralogia típica (estimados — ajustáveis no campo):
-     mohs : dureza Mohs (âncora; fabricantes indexam seleção em Mohs)
-     eqc  : teor de quartzo equivalente aproximado (%), via dureza Rosiwal
-     cai  : índice de abrasividade Cerchar representativo da litologia
-     abra : abrasividade default (low/medium/high) derivada de EQC+CAI
-     ucs  : faixa típica de resistência à compressão (MPa) — referência
-   Fontes: classes Cerchar por tipo de rocha; teor de quartzo / Rosiwal por
-   mineralogia padrão; faixas de UCS de literatura geotécnica.
+   BASE DE LITOLOGIAS (foco em sondagem no Brasil)
+     cls      : classe de dureza de perfuração da tabela técnica das coroas Explotools
+     dt       : true = rocha citada nominalmente na tabela; false = classe por analogia
+     cai      : abrasividade Cerchar típica (literatura; granito/gnaisse por medição publicada)
+     eqc      : teor de quartzo equivalente típico (%)
+     grain    : granulometria típica — entra na matriz e no canal de água
+     ucs      : faixa típica de resistência à compressão (MPa)
+     variable : rocha muito variável (alteração, cimentação, clastos)
+     alias    : sinônimos e nomes de boletim de sondagem usados na busca
+   A abrasividade (baixa/média/alta) não é digitada: sai do CAI por abraFromCAI().
    =========================================================================== */
 
 type Abra = 'low' | 'medium' | 'high'
+type Grain = 'fino' | 'medio' | 'grosso'
+type RockClass = 'mole' | 'media' | 'dura' | 'muito_dura' | 'extrema'
 
-interface Rock {
+interface RockData {
   n: string
-  mohs: number
-  eqc: number
+  cls: RockClass
+  dt: boolean
   cai: number
-  abra: Abra
+  eqc: number
+  grain: Grain
   ucs: [number, number]
+  variable?: boolean
+  alias?: string
 }
 
-const ABRA_DEFAULTS: Record<Abra, { eqc: number; cai: number }> = {
-  low: { eqc: 5, cai: 1 },
-  medium: { eqc: 28, cai: 2.5 },
-  high: { eqc: 60, cai: 4.2 },
+interface Rock extends RockData {
+  abra: Abra
+  variable: boolean
 }
 
-function ucsFor(mohs: number): [number, number] {
-  if (mohs < 3) return [10, 60]
-  if (mohs < 4) return [20, 120]
-  if (mohs < 5) return [20, 150]
-  if (mohs < 6) return [40, 200]
-  if (mohs < 6.8) return [100, 300]
-  return [150, 350]
+// Classes de dureza de perfuração da tabela técnica (H = ponto médio da faixa).
+const CLASSES: Record<
+  RockClass,
+  { label: string; range: [number, number]; H: number; ex: string }
+> = {
+  mole: {
+    label: 'Mole',
+    range: [2, 3],
+    H: 2.5,
+    ex: 'arenito, calcário, folhelho, serpentinito, carvão',
+  },
+  media: { label: 'Média', range: [3, 4], H: 3.5, ex: 'dolomito, ardósia, pegmatito, greenstone' },
+  dura: { label: 'Dura', range: [4, 6], H: 5, ex: 'basalto, gabro, diorito, xisto, norito' },
+  muito_dura: {
+    label: 'Muito dura',
+    range: [6, 7],
+    H: 6.5,
+    ex: 'granito, gnaisse, quartzito, riolito, andesito',
+  },
+  extrema: {
+    label: 'Extremamente dura',
+    range: [7, 8],
+    H: 7.5,
+    ex: 'itabirito/taconito, jaspilito, quartzo, chert',
+  },
 }
 
-function mk(
-  n: string,
-  mohs: number,
-  abra: Abra,
-  o: { eqc?: number; cai?: number; ucs?: [number, number] } = {},
-): Rock {
-  const d = ABRA_DEFAULTS[abra]
-  return { n, mohs, abra, eqc: o.eqc ?? d.eqc, cai: o.cai ?? d.cai, ucs: o.ucs ?? ucsFor(mohs) }
+// Classes Cerchar: baixa < 1,5 · média 1,5–3,0 · alta ≥ 3,0.
+function abraFromCAI(cai: number): Abra {
+  if (cai < 1.5) return 'low'
+  return cai < 3 ? 'medium' : 'high'
 }
 
-const ROCKS: Rock[] = [
-  // --- Sedimentares carbonáticas / evaporíticas ---
-  mk('Calcário', 3, 'low', { eqc: 2, cai: 1.2, ucs: [30, 200] }),
-  mk('Calcário dolomítico', 3.8, 'low', { eqc: 4, cai: 1.4, ucs: [40, 250] }),
-  mk('Calcário micrítico', 3, 'low', { eqc: 2, cai: 1, ucs: [30, 180] }),
-  mk('Calcário oolítico', 3, 'low', { eqc: 2, cai: 1, ucs: [20, 150] }),
-  mk('Travertino', 3, 'low', { eqc: 2, cai: 1, ucs: [20, 120] }),
-  mk('Calcilutito', 3, 'low', { eqc: 3, cai: 0.9 }),
-  mk('Calcarenito', 3.2, 'low', { eqc: 5, cai: 1.1 }),
-  mk('Calcirrudito', 3.2, 'low', { eqc: 5, cai: 1.1 }),
-  mk('Dolomita', 3.8, 'low', { eqc: 4, cai: 1, ucs: [40, 250] }),
-  mk('Marga', 3, 'low', { eqc: 5, cai: 0.8, ucs: [5, 50] }),
-  mk('Gesso', 2, 'low', { eqc: 0, cai: 0.3, ucs: [10, 40] }),
-  mk('Anidrita', 3, 'low', { eqc: 0, cai: 0.4, ucs: [20, 90] }),
-  mk('Halita (sal-gema)', 2.5, 'low', { eqc: 0, cai: 0.3, ucs: [10, 40] }),
-  mk('Evaporito (misto)', 2.5, 'low', { eqc: 0, cai: 0.3, ucs: [10, 50] }),
-  mk('Fosforito', 5, 'low', { eqc: 10, cai: 1.4 }),
-  mk('Diatomito', 3.5, 'low', { eqc: 8, cai: 0.8 }),
-  mk('Carvão betuminoso', 2.5, 'low', { eqc: 2, cai: 0.5, ucs: [5, 50] }),
-  mk('Antracito', 3, 'low', { eqc: 2, cai: 0.6, ucs: [10, 60] }),
-  // --- Sedimentares clásticas ---
-  mk('Arenito', 6.5, 'high', { eqc: 70, cai: 3, ucs: [20, 170] }),
-  mk('Arenito quartzoso', 6.8, 'high', { eqc: 85, cai: 3.5, ucs: [40, 180] }),
-  mk('Arenito feldspático (arcoseano)', 6.2, 'high', { eqc: 55, cai: 2.8, ucs: [40, 180] }),
-  mk('Arenito lítico', 6, 'high', { eqc: 50, cai: 2.6 }),
-  mk('Arenito ferruginoso', 6.8, 'high', { eqc: 65, cai: 3.5, ucs: [40, 180] }),
-  mk('Arenito glauconítico', 6.2, 'high', { eqc: 55, cai: 2.6 }),
-  mk('Arenito silicificado', 7, 'high', { eqc: 90, cai: 4.5, ucs: [120, 300] }),
-  mk('Arenito argiloso', 5.5, 'medium', { eqc: 40, cai: 2.2 }),
-  mk('Arenito conglomerático', 6.5, 'high', { eqc: 60, cai: 3 }),
-  mk('Siltito', 3.5, 'low', { eqc: 30, cai: 0.8, ucs: [5, 100] }),
-  mk('Folhelho', 3, 'low', { eqc: 20, cai: 0.7, ucs: [5, 100] }),
-  mk('Folhelho betuminoso', 3, 'low', { eqc: 18, cai: 0.7, ucs: [5, 100] }),
-  mk('Lutito', 3, 'low', { eqc: 18, cai: 0.7 }),
-  mk('Argilito', 2.8, 'low', { eqc: 12, cai: 0.6, ucs: [5, 80] }),
-  mk('Conglomerado (matriz argilosa)', 5.5, 'medium', { eqc: 45, cai: 2.2 }),
-  mk('Conglomerado (matriz sílica)', 6.8, 'high', { eqc: 60, cai: 3.2 }),
-  mk('Brecha sedimentar', 6, 'high', { eqc: 50, cai: 2.8 }),
-  mk('Varvito (ritmito)', 3.3, 'low', { eqc: 25, cai: 0.8 }),
-  mk('Laterita', 5.5, 'high', { eqc: 30, cai: 2.6, ucs: [10, 100] }),
-  mk('Canga (latossolo endurecido)', 5.8, 'high', { eqc: 40, cai: 2.8, ucs: [20, 120] }),
-  mk('Ferricrete', 6, 'high', { eqc: 40, cai: 3 }),
-  // --- Formações ferríferas e silicosas ---
-  mk('BIF (Formação Ferrífera Bandada)', 6.8, 'high', { eqc: 60, cai: 4.5, ucs: [100, 300] }),
-  mk('Itabirito', 6.8, 'high', { eqc: 60, cai: 4.5, ucs: [100, 300] }),
-  mk('Hematitito compacto', 6.5, 'high', { eqc: 30, cai: 3, ucs: [100, 300] }),
-  mk('Jaspelito', 6.8, 'high', { eqc: 90, cai: 4.8, ucs: [150, 300] }),
-  mk('Chert', 7, 'high', { eqc: 95, cai: 5, ucs: [150, 350] }),
-  mk('Sílex', 7, 'high', { eqc: 95, cai: 5, ucs: [150, 350] }),
-  mk('Calcedônia', 6.8, 'high', { eqc: 95, cai: 4.8, ucs: [120, 300] }),
-  mk('Opala (comum)', 5.5, 'medium', { eqc: 60, cai: 2.5 }),
-  mk('Silexito', 7, 'high', { eqc: 95, cai: 5, ucs: [150, 350] }),
-  mk('Tufito carbonático', 3, 'low', { eqc: 5, cai: 0.8 }),
-  mk('Tufo calcário', 3, 'low', { eqc: 3, cai: 0.8 }),
-  mk('Caliche', 3, 'low', { eqc: 5, cai: 1 }),
-  // --- Ígneas vulcânicas ---
-  mk('Basalto', 6, 'medium', { eqc: 25, cai: 2.5, ucs: [100, 350] }),
-  mk('Basalto vesicular', 6, 'medium', { eqc: 22, cai: 2.3, ucs: [80, 300] }),
-  mk('Basalto amigdaloidal', 6, 'medium', { eqc: 22, cai: 2.3, ucs: [80, 300] }),
-  mk('Basalto porfirítico', 6.2, 'medium', { eqc: 25, cai: 2.6, ucs: [100, 350] }),
-  mk('Basalto alterado', 5.5, 'medium', { eqc: 20, cai: 2 }),
-  mk('Diabásio', 6.5, 'medium', { eqc: 28, cai: 2.8, ucs: [150, 300] }),
-  mk('Andesito', 6.5, 'medium', { eqc: 35, cai: 2.5, ucs: [100, 300] }),
-  mk('Andesito porfirítico', 6.6, 'medium', { eqc: 35, cai: 2.6, ucs: [100, 300] }),
-  mk('Andesito vesicular', 6.2, 'medium', { eqc: 32, cai: 2.4 }),
-  mk('Riolito', 6, 'high', { eqc: 55, cai: 3.5, ucs: [100, 300] }),
-  mk('Riolito porfirítico', 6.2, 'high', { eqc: 55, cai: 3.6, ucs: [100, 300] }),
-  mk('Dacito', 6.5, 'high', { eqc: 50, cai: 3.3, ucs: [100, 300] }),
-  mk('Traquito', 6, 'medium', { eqc: 30, cai: 2.5, ucs: [100, 250] }),
-  mk('Fonolito', 5.8, 'medium', { eqc: 20, cai: 2.2 }),
-  mk('Tephri-fonolito', 5.8, 'medium', { eqc: 20, cai: 2.2 }),
-  mk('Traquiandesito', 6.2, 'medium', { eqc: 30, cai: 2.5 }),
-  mk('Ignimbrito soldado', 6, 'high', { eqc: 50, cai: 3.2 }),
-  mk('Ignimbrito não soldado', 5.5, 'medium', { eqc: 40, cai: 2.4 }),
-  mk('Tufo vulcânico', 5.5, 'medium', { eqc: 35, cai: 2.2 }),
-  mk('Brecha vulcânica', 6, 'medium', { eqc: 35, cai: 2.5 }),
-  mk('Tefra consolidada', 5.5, 'medium', { eqc: 30, cai: 2 }),
-  mk('Obsidiana', 5.5, 'medium', { eqc: 30, cai: 1.8, ucs: [50, 150] }),
-  mk('Pumita (pumice)', 5.5, 'medium', { eqc: 30, cai: 1.6 }),
-  mk('Escória basáltica', 5.8, 'medium', { eqc: 22, cai: 2.2 }),
-  mk('Komatito', 6, 'medium', { eqc: 25, cai: 2.4 }),
-  mk('Kimberlito', 6, 'low', { eqc: 10, cai: 1, ucs: [10, 100] }),
-  mk('Carbonatito', 3.5, 'low', { eqc: 5, cai: 0.9 }),
-  // --- Ígneas plutônicas ---
-  mk('Gabro', 6.5, 'medium', { eqc: 28, cai: 2.5, ucs: [150, 300] }),
-  mk('Norito', 6.5, 'medium', { eqc: 28, cai: 2.5, ucs: [150, 300] }),
-  mk('Anortosito', 6, 'medium', { eqc: 18, cai: 2, ucs: [150, 300] }),
-  mk('Peridotito', 6.5, 'medium', { eqc: 35, cai: 2.8, ucs: [150, 300] }),
-  mk('Dunito', 6.5, 'medium', { eqc: 35, cai: 2.8, ucs: [150, 300] }),
-  mk('Harzburgito', 6.5, 'medium', { eqc: 33, cai: 2.7 }),
-  mk('Lherzolito', 6.5, 'medium', { eqc: 33, cai: 2.7 }),
-  mk('Sienito', 5.8, 'medium', { eqc: 30, cai: 2.8, ucs: [150, 300] }),
-  mk('Sienito nefelínico', 5.8, 'medium', { eqc: 20, cai: 2.4 }),
-  mk('Foiaíto', 5.8, 'medium', { eqc: 18, cai: 2.2 }),
-  mk('Monzonito', 6, 'medium', { eqc: 35, cai: 2.8 }),
-  mk('Monzodiorito', 6.2, 'medium', { eqc: 35, cai: 2.8 }),
-  mk('Diorito', 6.5, 'medium', { eqc: 25, cai: 2.5, ucs: [150, 300] }),
-  mk('Quartzo-diorito', 6.5, 'high', { eqc: 40, cai: 3.5, ucs: [150, 300] }),
-  mk('Granodiorito', 6.5, 'high', { eqc: 45, cai: 4.2, ucs: [150, 300] }),
-  mk('Granito', 6.5, 'high', { eqc: 55, cai: 4.5, ucs: [100, 300] }),
-  mk('Monzogranito', 6.5, 'high', { eqc: 50, cai: 4.3, ucs: [150, 300] }),
-  mk('Sienogranito', 6.5, 'high', { eqc: 50, cai: 4, ucs: [150, 300] }),
-  mk('Tonalito', 6.5, 'high', { eqc: 45, cai: 4, ucs: [150, 300] }),
-  mk('Pegmatito', 6.5, 'high', { eqc: 50, cai: 4, ucs: [100, 250] }),
-  mk('Aplito', 6.5, 'high', { eqc: 50, cai: 4 }),
-  mk('Charnockito', 6.5, 'high', { eqc: 45, cai: 4 }),
-  // --- Metamórficas ---
-  mk('Quartzito', 7, 'high', { eqc: 95, cai: 5, ucs: [150, 350] }),
-  mk('Quartzito micáceo', 6.8, 'high', { eqc: 80, cai: 4.5, ucs: [120, 300] }),
-  mk('Quartzito ferruginoso', 6.9, 'high', { eqc: 80, cai: 4.6, ucs: [120, 300] }),
-  mk('Gnaisse', 6.5, 'high', { eqc: 55, cai: 4.5, ucs: [150, 300] }),
-  mk('Gnaisse bandado', 6.6, 'high', { eqc: 55, cai: 4.5, ucs: [150, 300] }),
-  mk('Gnaisse granítico', 6.5, 'high', { eqc: 55, cai: 4.5, ucs: [150, 300] }),
-  mk('Gnaisse charnockítico', 6.6, 'high', { eqc: 50, cai: 4.3 }),
-  mk('Migmatito', 6.5, 'high', { eqc: 50, cai: 4, ucs: [150, 300] }),
-  mk('Milonito', 6.2, 'medium', { eqc: 40, cai: 3 }),
-  mk('Cataclasito', 6, 'medium', { eqc: 40, cai: 2.8 }),
-  mk('Tectonito', 6.5, 'medium', { eqc: 40, cai: 3 }),
-  mk('Xisto (biotita)', 4.8, 'medium', { eqc: 35, cai: 2, ucs: [20, 120] }),
-  mk('Xisto (clorita)', 4.2, 'medium', { eqc: 25, cai: 1.6 }),
-  mk('Xisto (muscovita)', 4.5, 'medium', { eqc: 35, cai: 1.8 }),
-  mk('Xisto grafitoso', 4, 'low', { eqc: 15, cai: 0.9 }),
-  mk('Filito', 3.5, 'low', { eqc: 15, cai: 1, ucs: [20, 100] }),
-  mk('Ardósia', 4, 'low', { eqc: 18, cai: 0.8, ucs: [40, 180] }),
-  mk('Mármore', 3.5, 'low', { eqc: 3, cai: 0.8, ucs: [40, 200] }),
-  mk('Mármore dolomítico', 3.8, 'low', { eqc: 3, cai: 0.9, ucs: [40, 200] }),
-  mk('Serpentinitos', 3.5, 'low', { eqc: 10, cai: 0.7, ucs: [20, 120] }),
-  mk('Talco-xisto', 2, 'low', { eqc: 5, cai: 0.4, ucs: [10, 60] }),
-  mk('Cloritito', 3, 'low', { eqc: 8, cai: 0.7 }),
-  mk('Anfibolito', 5.8, 'medium', { eqc: 30, cai: 2.5, ucs: [150, 280] }),
-  mk('Eclogito', 7.5, 'medium', { eqc: 20, cai: 3, ucs: [200, 350] }),
-  mk('Hornfels', 6, 'medium', { eqc: 35, cai: 2.8 }),
-  mk('Skarn (calcossilicatado)', 6.5, 'medium', { eqc: 30, cai: 2.8 }),
-  mk('Metabasito', 6.2, 'medium', { eqc: 28, cai: 2.5 }),
-  mk('Metagabro', 6.3, 'medium', { eqc: 28, cai: 2.5 }),
-  mk('Metagranito', 6.5, 'high', { eqc: 50, cai: 4.2 }),
-  mk('Meta-arenito', 6.8, 'high', { eqc: 75, cai: 4 }),
-  mk('Meta-argilito', 3.2, 'low', { eqc: 15, cai: 0.8 }),
-  mk('Meta-limestone', 3.5, 'low', { eqc: 3, cai: 0.8 }),
-  mk('Quartzito cataclástico', 7, 'high', { eqc: 90, cai: 4.8 }),
-  mk('Quartzo milonítico', 7, 'high', { eqc: 90, cai: 4.8 }),
-  mk('Xisto anfibolítico', 5.8, 'medium', { eqc: 30, cai: 2.4 }),
-  mk('Gnaisse milonítico', 6.4, 'high', { eqc: 50, cai: 4 }),
-  mk('Mármores impuros (silicosos)', 4, 'medium', { eqc: 25, cai: 1.8 }),
-  // --- Veios / hidrotermais / alteração ---
-  mk('Veio de quartzo', 7, 'high', { eqc: 100, cai: 5.5, ucs: [100, 300] }),
-  mk('Brecha hidrotermal', 6.5, 'high', { eqc: 60, cai: 3.5 }),
-  mk('Silcrete', 7, 'high', { eqc: 90, cai: 4.8 }),
-  mk('Ferruginização (boxwork)', 6.5, 'high', { eqc: 40, cai: 3.2 }),
-  mk('Argilização intensa', 2.8, 'low', { eqc: 10, cai: 0.6 }),
-  mk('Caulinita (rocha caulinizada)', 2.5, 'low', { eqc: 8, cai: 0.5 }),
-  mk('Lateritização níquel', 5.5, 'medium', { eqc: 25, cai: 2.2 }),
-  mk('Gossan', 5.5, 'medium', { eqc: 30, cai: 2.4 }),
-  mk('Greisen', 6.5, 'high', { eqc: 60, cai: 4 }),
-  mk('Zonas talcose', 2, 'low', { eqc: 5, cai: 0.4 }),
-  mk('Saprolito granítico', 3.5, 'low', { eqc: 30, cai: 1.2 }),
-  mk('Saprolito basáltico', 3.5, 'low', { eqc: 15, cai: 1 }),
-  mk('Saprolito gnáissico', 3.8, 'low', { eqc: 30, cai: 1.2 }),
+const DATA: RockData[] = [
+  // ---- Mole (Mohs de perfuração 2–3)
+  {
+    n: 'Calcário',
+    cls: 'mole',
+    dt: true,
+    cai: 1.2,
+    eqc: 2,
+    grain: 'fino',
+    ucs: [30, 200],
+    alias:
+      'limestone travertino calcilutito calcarenito calcirrudito calcario micritico calcario oolitico caliche',
+  },
+  {
+    n: 'Lamito',
+    cls: 'mole',
+    dt: true,
+    cai: 0.6,
+    eqc: 20,
+    grain: 'fino',
+    ucs: [5, 80],
+    alias: 'mudstone argilito lutito',
+  },
+  {
+    n: 'Folhelho',
+    cls: 'mole',
+    dt: true,
+    cai: 0.7,
+    eqc: 20,
+    grain: 'fino',
+    ucs: [5, 100],
+    alias: 'shale folhelho betuminoso pirobetuminoso',
+  },
+  {
+    n: 'Carvão',
+    cls: 'mole',
+    dt: true,
+    cai: 0.3,
+    eqc: 0,
+    grain: 'fino',
+    ucs: [5, 50],
+    alias: 'coal linhito carvao betuminoso antracito',
+  },
+  {
+    n: 'Serpentinito',
+    cls: 'mole',
+    dt: true,
+    cai: 0.7,
+    eqc: 10,
+    grain: 'fino',
+    ucs: [20, 120],
+    alias: 'serpentina serpentinitos',
+  },
+  {
+    n: 'Arenito (quartzoso)',
+    cls: 'mole',
+    dt: true,
+    cai: 3,
+    eqc: 70,
+    grain: 'medio',
+    ucs: [20, 170],
+    alias: 'sandstone quartzarenito arenito quartzoso',
+  },
+  {
+    n: 'Arenito ferruginoso',
+    cls: 'mole',
+    dt: false,
+    cai: 3.5,
+    eqc: 65,
+    grain: 'medio',
+    ucs: [40, 180],
+  },
+  {
+    n: 'Arenito arcoseano',
+    cls: 'mole',
+    dt: false,
+    cai: 2.5,
+    eqc: 55,
+    grain: 'medio',
+    ucs: [40, 180],
+    alias: 'arcosio arcoseo arenito feldspatico arcoseano',
+  },
+  { n: 'Siltito', cls: 'mole', dt: false, cai: 0.8, eqc: 30, grain: 'fino', ucs: [5, 100] },
+  {
+    n: 'Ritmito',
+    cls: 'mole',
+    dt: false,
+    cai: 1,
+    eqc: 25,
+    grain: 'fino',
+    ucs: [10, 80],
+    alias: 'varvito',
+  },
+  { n: 'Marga', cls: 'mole', dt: false, cai: 0.8, eqc: 5, grain: 'fino', ucs: [5, 50] },
+  {
+    n: 'Mármore',
+    cls: 'mole',
+    dt: false,
+    cai: 0.8,
+    eqc: 3,
+    grain: 'medio',
+    ucs: [40, 200],
+    alias: 'calcita marmore dolomitico meta-limestone metacalcario',
+  },
+  {
+    n: 'Gipsita (gesso)',
+    cls: 'mole',
+    dt: false,
+    cai: 0.3,
+    eqc: 0,
+    grain: 'fino',
+    ucs: [10, 40],
+    alias: 'gesso gipso',
+  },
+  {
+    n: 'Halita (sal-gema)',
+    cls: 'mole',
+    dt: false,
+    cai: 0.3,
+    eqc: 0,
+    grain: 'medio',
+    ucs: [10, 40],
+    alias: 'sal',
+  },
+  {
+    n: 'Silvinita',
+    cls: 'mole',
+    dt: false,
+    cai: 0.3,
+    eqc: 0,
+    grain: 'medio',
+    ucs: [10, 35],
+    alias: 'potassio sal potassico',
+  },
+  {
+    n: 'Esteatito (pedra-sabão)',
+    cls: 'mole',
+    dt: false,
+    cai: 0.3,
+    eqc: 0,
+    grain: 'fino',
+    ucs: [10, 60],
+    alias: 'pedra sabao talco xisto talco talco-xisto zonas talcose zonas talcosas',
+  },
+  {
+    n: 'Saprolito',
+    cls: 'mole',
+    dt: false,
+    cai: 0.8,
+    eqc: 20,
+    grain: 'fino',
+    ucs: [1, 25],
+    variable: true,
+    alias:
+      'rocha alterada intemperizada solo residual saprolito granitico saprolito basaltico saprolito gnaissico',
+  },
+  {
+    n: 'Bauxita',
+    cls: 'mole',
+    dt: false,
+    cai: 1,
+    eqc: 5,
+    grain: 'fino',
+    ucs: [5, 60],
+    alias: 'minerio de aluminio',
+  },
+  {
+    n: 'Kimberlito',
+    cls: 'mole',
+    dt: false,
+    cai: 1,
+    eqc: 10,
+    grain: 'medio',
+    ucs: [10, 100],
+    variable: true,
+  },
+  {
+    n: 'Itabirito friável',
+    cls: 'mole',
+    dt: false,
+    cai: 3,
+    eqc: 60,
+    grain: 'fino',
+    ucs: [1, 30],
+    variable: true,
+    alias: 'itabirito brando itabirito mole itabirito silicoso friavel minerio de ferro',
+  },
+  {
+    n: 'Hematita macia (friável)',
+    cls: 'mole',
+    dt: false,
+    cai: 1.5,
+    eqc: 30,
+    grain: 'fino',
+    ucs: [1, 30],
+    variable: true,
+    alias: 'hematitita friavel hematita friavel minerio de ferro friavel',
+  },
+  // ---- Média (3–4)
+  {
+    n: 'Dolomito',
+    cls: 'media',
+    dt: true,
+    cai: 1,
+    eqc: 4,
+    grain: 'fino',
+    ucs: [40, 250],
+    alias: 'dolomita dolomite',
+  },
+  {
+    n: 'Ardósia',
+    cls: 'media',
+    dt: true,
+    cai: 0.8,
+    eqc: 18,
+    grain: 'fino',
+    ucs: [40, 180],
+    alias: 'slate',
+  },
+  {
+    n: 'Pegmatito',
+    cls: 'media',
+    dt: true,
+    cai: 4,
+    eqc: 50,
+    grain: 'grosso',
+    ucs: [100, 250],
+    alias: 'pegmatita espodumenio litio',
+  },
+  {
+    n: 'Greenstone (rocha verde)',
+    cls: 'media',
+    dt: true,
+    cai: 2,
+    eqc: 25,
+    grain: 'fino',
+    ucs: [100, 250],
+    alias: 'rocha verde',
+  },
+  {
+    n: 'Calcário dolomítico',
+    cls: 'media',
+    dt: false,
+    cai: 1.4,
+    eqc: 4,
+    grain: 'fino',
+    ucs: [40, 250],
+  },
+  {
+    n: 'Filito',
+    cls: 'media',
+    dt: false,
+    cai: 1,
+    eqc: 15,
+    grain: 'fino',
+    ucs: [20, 100],
+    alias: 'filito carbonoso filito grafitoso sericita filito',
+  },
+  {
+    n: 'Clorita xisto',
+    cls: 'media',
+    dt: false,
+    cai: 1.2,
+    eqc: 10,
+    grain: 'fino',
+    ucs: [20, 100],
+    alias: 'clorita-xisto cloritito xisto clorita',
+  },
+  {
+    n: 'Sericita xisto',
+    cls: 'media',
+    dt: false,
+    cai: 2,
+    eqc: 35,
+    grain: 'fino',
+    ucs: [20, 120],
+    alias: 'quartzo-sericita xisto quartzo sericita xisto',
+  },
+  {
+    n: 'Carbonatito',
+    cls: 'media',
+    dt: false,
+    cai: 1.5,
+    eqc: 8,
+    grain: 'medio',
+    ucs: [40, 180],
+    alias: 'fosfato niobio terras raras',
+  },
+  {
+    n: 'Conglomerado',
+    cls: 'media',
+    dt: false,
+    cai: 3.5,
+    eqc: 55,
+    grain: 'grosso',
+    ucs: [40, 200],
+    variable: true,
+    alias: 'conglomerado matriz argilosa conglomerado matriz silica',
+  },
+  {
+    n: 'Laterita',
+    cls: 'media',
+    dt: false,
+    cai: 2,
+    eqc: 30,
+    grain: 'medio',
+    ucs: [10, 100],
+    variable: true,
+    alias: 'laterita niquelifera lateritizacao niquel',
+  },
+  {
+    n: 'Canga (latossolo endurecido)',
+    cls: 'media',
+    dt: false,
+    cai: 2.5,
+    eqc: 40,
+    grain: 'grosso',
+    ucs: [20, 120],
+    variable: true,
+    alias: 'ferricrete',
+  },
+  // ---- Dura (4–6)
+  {
+    n: 'Basalto',
+    cls: 'dura',
+    dt: true,
+    cai: 2.5,
+    eqc: 25,
+    grain: 'fino',
+    ucs: [100, 350],
+    alias: 'basalto vesicular basalto amigdaloidal basalto porfiritico',
+  },
+  {
+    n: 'Gabro',
+    cls: 'dura',
+    dt: true,
+    cai: 2.5,
+    eqc: 28,
+    grain: 'grosso',
+    ucs: [150, 300],
+    alias: 'metagabro',
+  },
+  { n: 'Norito', cls: 'dura', dt: true, cai: 2.5, eqc: 28, grain: 'grosso', ucs: [150, 300] },
+  {
+    n: 'Diorito',
+    cls: 'dura',
+    dt: true,
+    cai: 2.5,
+    eqc: 25,
+    grain: 'medio',
+    ucs: [150, 300],
+    alias: 'monzodiorito',
+  },
+  {
+    n: 'Xisto',
+    cls: 'dura',
+    dt: true,
+    cai: 2,
+    eqc: 35,
+    grain: 'medio',
+    ucs: [20, 120],
+    variable: true,
+    alias: 'mica xisto biotita xisto muscovita xisto granada xisto schist',
+  },
+  {
+    n: 'Metabasalto',
+    cls: 'dura',
+    dt: false,
+    cai: 2.5,
+    eqc: 25,
+    grain: 'fino',
+    ucs: [100, 300],
+    alias: 'rocha mafica metavulcanica mafica clorita metabasalto metabasito',
+  },
+  {
+    n: 'Diabásio',
+    cls: 'dura',
+    dt: false,
+    cai: 2.8,
+    eqc: 28,
+    grain: 'medio',
+    ucs: [150, 300],
+    alias: 'dolerito',
+  },
+  {
+    n: 'Sienito',
+    cls: 'dura',
+    dt: false,
+    cai: 2.8,
+    eqc: 30,
+    grain: 'medio',
+    ucs: [150, 300],
+    alias: 'nefelina sienito sienito nefelinico foiaito monzonito',
+  },
+  { n: 'Anortosito', cls: 'dura', dt: false, cai: 2, eqc: 18, grain: 'grosso', ucs: [150, 300] },
+  { n: 'Piroxenito', cls: 'dura', dt: false, cai: 2.5, eqc: 30, grain: 'grosso', ucs: [150, 300] },
+  {
+    n: 'Peridotito/Dunito',
+    cls: 'dura',
+    dt: false,
+    cai: 2.8,
+    eqc: 35,
+    grain: 'medio',
+    ucs: [150, 300],
+    variable: true,
+    alias: 'ultramafica harzburgito lherzolito',
+  },
+  {
+    n: 'Anfibolito',
+    cls: 'dura',
+    dt: false,
+    cai: 2.5,
+    eqc: 30,
+    grain: 'medio',
+    ucs: [150, 280],
+    alias: 'xisto anfibolitico',
+  },
+  {
+    n: 'Brecha',
+    cls: 'dura',
+    dt: false,
+    cai: 3,
+    eqc: 40,
+    grain: 'grosso',
+    ucs: [50, 250],
+    variable: true,
+    alias: 'brecha hidrotermal rocha brechada brecha sedimentar',
+  },
+  // ---- Muito dura (6–7)
+  {
+    n: 'Granito',
+    cls: 'muito_dura',
+    dt: true,
+    cai: 4.1,
+    eqc: 55,
+    grain: 'grosso',
+    ucs: [100, 300],
+    alias: 'metagranito',
+  },
+  {
+    n: 'Gnaisse',
+    cls: 'muito_dura',
+    dt: true,
+    cai: 3.8,
+    eqc: 55,
+    grain: 'medio',
+    ucs: [150, 300],
+    alias: 'ortognaisse paragnaisse gnaisse bandado gnaisse granitico',
+  },
+  {
+    n: 'Quartzito',
+    cls: 'muito_dura',
+    dt: true,
+    cai: 5,
+    eqc: 95,
+    grain: 'fino',
+    ucs: [150, 350],
+    alias: 'quartzite quartzito cataclastico',
+  },
+  {
+    n: 'Riolito',
+    cls: 'muito_dura',
+    dt: true,
+    cai: 3.5,
+    eqc: 55,
+    grain: 'fino',
+    ucs: [100, 300],
+    alias: 'metavulcanica felsica riolito porfiritico',
+  },
+  {
+    n: 'Andesito',
+    cls: 'muito_dura',
+    dt: true,
+    cai: 2.5,
+    eqc: 35,
+    grain: 'fino',
+    ucs: [100, 300],
+    alias: 'andesito porfiritico andesito vesicular',
+  },
+  {
+    n: 'Granodiorito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.6,
+    eqc: 45,
+    grain: 'medio',
+    ucs: [150, 300],
+  },
+  {
+    n: 'Monzogranito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.9,
+    eqc: 50,
+    grain: 'grosso',
+    ucs: [150, 300],
+  },
+  {
+    n: 'Sienogranito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.9,
+    eqc: 50,
+    grain: 'grosso',
+    ucs: [150, 300],
+  },
+  {
+    n: 'Tonalito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.6,
+    eqc: 45,
+    grain: 'medio',
+    ucs: [150, 300],
+    alias: 'trondhjemito',
+  },
+  {
+    n: 'Quartzodiorito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.3,
+    eqc: 40,
+    grain: 'medio',
+    ucs: [150, 300],
+    alias: 'quartzo-diorito',
+  },
+  {
+    n: 'Charnockito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.3,
+    eqc: 40,
+    grain: 'grosso',
+    ucs: [150, 300],
+    alias: 'enderbito gnaisse charnockitico',
+  },
+  {
+    n: 'Granulito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.3,
+    eqc: 40,
+    grain: 'medio',
+    ucs: [150, 300],
+  },
+  {
+    n: 'Dacito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.3,
+    eqc: 50,
+    grain: 'fino',
+    ucs: [100, 300],
+    alias: 'riodacito metadacito',
+  },
+  {
+    n: 'Traquito/Fonolito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 2.5,
+    eqc: 30,
+    grain: 'fino',
+    ucs: [100, 250],
+    alias: 'traquito fonolito tinguaito tefri-fonolito tefrifonolito traquiandesito',
+  },
+  {
+    n: 'Migmatito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.8,
+    eqc: 50,
+    grain: 'grosso',
+    ucs: [150, 300],
+  },
+  {
+    n: 'Quartzito micáceo',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 4.5,
+    eqc: 80,
+    grain: 'fino',
+    ucs: [120, 300],
+  },
+  {
+    n: 'Quartzito ferruginoso',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 4.5,
+    eqc: 80,
+    grain: 'fino',
+    ucs: [150, 300],
+  },
+  {
+    n: 'Metarenito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.5,
+    eqc: 75,
+    grain: 'medio',
+    ucs: [100, 250],
+    alias: 'meta-arenito',
+  },
+  {
+    n: 'Metaconglomerado',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3.8,
+    eqc: 70,
+    grain: 'grosso',
+    ucs: [100, 250],
+    alias: 'conglomerado aurifero',
+  },
+  {
+    n: 'Greisen',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 4,
+    eqc: 70,
+    grain: 'medio',
+    ucs: [100, 250],
+    alias: 'estanho cassiterita',
+  },
+  {
+    n: 'Hematita dura (compacta)',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3,
+    eqc: 30,
+    grain: 'fino',
+    ucs: [100, 300],
+    alias: 'hematitita compacta hematitito compacto hematita compacta minerio de ferro',
+  },
+  {
+    n: 'Magnetitito',
+    cls: 'muito_dura',
+    dt: false,
+    cai: 3,
+    eqc: 30,
+    grain: 'fino',
+    ucs: [100, 300],
+    alias: 'magnetita',
+  },
+  // ---- Extremamente dura (7–8)
+  {
+    n: 'Itabirito compacto',
+    cls: 'extrema',
+    dt: true,
+    cai: 4.5,
+    eqc: 60,
+    grain: 'fino',
+    ucs: [100, 300],
+    alias: 'taconito taconita itabirito duro bif formacao ferrifera bandada minerio de ferro',
+  },
+  {
+    n: 'Jaspilito',
+    cls: 'extrema',
+    dt: true,
+    cai: 4.8,
+    eqc: 90,
+    grain: 'fino',
+    ucs: [150, 300],
+    alias: 'jaspe jasperito jaspelito',
+  },
+  {
+    n: 'Chert',
+    cls: 'extrema',
+    dt: true,
+    cai: 5,
+    eqc: 95,
+    grain: 'fino',
+    ucs: [150, 350],
+    alias: 'silex silexito calcedonia',
+  },
+  {
+    n: 'Quartzo maciço (veio)',
+    cls: 'extrema',
+    dt: true,
+    cai: 5.5,
+    eqc: 100,
+    grain: 'medio',
+    ucs: [100, 300],
+    alias: 'veio de quartzo',
+  },
+  { n: 'Metachert', cls: 'extrema', dt: false, cai: 5, eqc: 95, grain: 'fino', ucs: [150, 350] },
 ]
 
-// Rótulos para o menu de busca, mantendo o formato "Nome - Mohs X".
-const rochas: string[] = ROCKS.map((r) => `${r.n} - Mohs ${r.mohs}`)
+const ROCKS: Rock[] = DATA.map((rock) =>
+  Object.assign(rock, { abra: abraFromCAI(rock.cai), variable: rock.variable ?? false }),
+)
 
-// Localiza a rocha pelo rótulo ("Nome - Mohs X") ou pelo nome puro.
-function findRock(label?: string | null): Rock | undefined {
-  if (!label) return undefined
-  const name = label.split(' - Mohs')[0]?.trim() ?? ''
-  return ROCKS.find((r) => r.n === name) ?? ROCKS.find((r) => label.startsWith(r.n))
+// Rochas mais usadas na sondagem no Brasil (atalhos da ferramenta).
+const COMMON_ROCKS = [
+  'Granito',
+  'Gnaisse',
+  'Itabirito compacto',
+  'Itabirito friável',
+  'Basalto',
+  'Quartzito',
+  'Xisto',
+  'Arenito (quartzoso)',
+]
+
+function normText(value?: string | null): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replaceAll(/\p{Diacritic}/gu, '')
+    .toLowerCase()
 }
 
-// Classe textual de abrasividade a partir do CAI (Cerchar).
-function caiClass(c: number): string {
-  if (c < 0.5) return 'quase não abrasiva'
-  if (c < 1) return 'pouco abrasiva'
-  if (c < 2) return 'abrasiva'
-  if (c < 4) return 'muito abrasiva'
-  return 'extremamente abrasiva'
+function findRock(name?: string | null): Rock | null {
+  if (!name) return null
+  return ROCKS.find((rock) => rock.n === name) ?? null
 }
 
-export type { Abra, Rock }
-export { ABRA_DEFAULTS, ROCKS, rochas, findRock, caiClass }
+// Busca sem acento: começa pelo nome > palavra do nome começa > nome contém >
+// palavra do sinônimo começa (só no começo da palavra: "arenito" não acha "calcarenito").
+function searchRocks(query: string, limit = 12): Rock[] {
+  const term = normText(query).trim()
+  if (!term) return []
+  const hits: { rock: Rock; score: number; index: number }[] = []
+  for (const [index, rock] of ROCKS.entries()) {
+    const name = normText(rock.n)
+    let score = -1
+    if (name.startsWith(term)) score = 0
+    else if (` ${name.replaceAll(/[()/-]/gu, ' ')}`.includes(` ${term}`)) score = 1
+    else if (name.includes(term)) score = 2
+    else if (` ${normText(rock.alias)}`.includes(` ${term}`)) score = 3
+    if (score > -1) hits.push({ rock, score, index })
+  }
+  hits.sort((a, b) => a.score - b.score || a.index - b.index)
+  return hits.slice(0, limit).map((hit) => hit.rock)
+}
+
+export type { Abra, Grain, Rock, RockClass }
+export { CLASSES, COMMON_ROCKS, ROCKS, abraFromCAI, findRock, normText, searchRocks }

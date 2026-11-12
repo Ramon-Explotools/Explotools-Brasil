@@ -7,12 +7,20 @@ function yesNo(value: boolean | undefined): string {
   return value ? 'Sim' : 'Não'
 }
 
+// Cidades/UF distintas das sondagens do lead.
+function locais(recs: { local?: LocalSondagem | null }[] | undefined): string {
+  const nomes = (recs ?? []).flatMap((rec) =>
+    rec.local ? [`${rec.local.cidade}/${rec.local.uf}`] : [],
+  )
+  return [...new Set(nomes)].join(', ')
+}
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
   const [leads, recomendacoes] = await Promise.all([
     Leads.find().lean(),
-    Recomendacoes.find().select('email').lean(),
+    Recomendacoes.find().select('email local').lean(),
   ]).catch(() => failed('Não foi possível ler os cadastros'))
 
   const total = Map.groupBy(recomendacoes, (rec) => rec.email)
@@ -29,6 +37,7 @@ export default defineEventHandler(async (event) => {
     { header: 'Cargo', key: 'cargo', width: 22 },
     { header: 'Wireline', key: 'wireline', width: 10 },
     { header: 'Recomendações', key: 'recomendacoes', width: 16 },
+    { header: 'Locais das sondagens', key: 'locais', width: 34 },
     { header: 'Cadastro', key: 'createdAt', width: 20 },
     { header: 'Último acesso', key: 'lastAccess', width: 20 },
   ]
@@ -47,6 +56,7 @@ export default defineEventHandler(async (event) => {
       cargo: lead.cargo,
       wireline: yesNo(lead.wireline),
       recomendacoes: total.get(lead.email)?.length ?? 0,
+      locais: locais(total.get(lead.email)),
       createdAt: lead.createdAt ? new Date(lead.createdAt) : lead._id.getTimestamp(),
       lastAccess: lead.lastAccess ? new Date(lead.lastAccess) : '',
     })
@@ -54,7 +64,7 @@ export default defineEventHandler(async (event) => {
 
   sheet.getColumn('createdAt').numFmt = 'dd/mm/yyyy hh:mm'
   sheet.getColumn('lastAccess').numFmt = 'dd/mm/yyyy hh:mm'
-  sheet.autoFilter = { from: 'A1', to: 'I1' }
+  sheet.autoFilter = { from: 'A1', to: 'J1' }
 
   const buffer = await workbook.xlsx.writeBuffer()
   const day = new Date().toISOString().slice(0, 10)

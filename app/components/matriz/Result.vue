@@ -1,10 +1,10 @@
 <script setup lang="ts">
   const props = defineProps({
-    data: { type: Object as PropType<RecomendacaoMongo>, required: true },
+    data: { type: Object as PropType<RecomendacaoLegada>, required: true },
   })
 
   const text = {
-    badge: 'Recomendação',
+    badge: 'Recomendação antiga',
     rock: 'Rocha',
     unnamed: 'Não informada',
     matrix: 'Dureza da matriz',

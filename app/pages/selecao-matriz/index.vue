@@ -1,42 +1,71 @@
 <script setup lang="ts">
   import { safeParse } from 'valibot'
 
+  import type { Cond } from '#shared/utils/matriz.engine'
+  import type { Abra, Rock, RockClass } from '#shared/utils/rochas'
+
   const text = {
-    title: 'Seleção de matriz',
+    title: 'Seleção de coroa',
     description:
-      'Ferramenta gratuita da Explotools para escolher a dureza da matriz da coroa diamantada impregnada pela rocha, abrasividade e diâmetro — com RPM, WOB, vazão e equivalência entre marcas.',
+      'Ferramenta gratuita da Explotools para escolher a coroa diamantada impregnada certa: matriz, canal de água e parâmetros de operação pela rocha, diâmetro e testemunho.',
     eyebrow: 'Ferramenta Explotools',
-    heading: ['Seleção', 'de matriz.'],
-    lede: 'Informe a rocha e as condições do furo. A ferramenta sugere a dureza da matriz, a série, a geometria da coroa e os parâmetros de operação.',
-    step1: 'Identifique a rocha',
-    step1Lede:
-      'Digite a litologia. Abrasividade e dureza (Mohs) vêm automaticamente pelo nome da rocha.',
+    heading: ['Seleção', 'de coroa.'],
+    lede: 'Responda 4 perguntas e toque em Obter recomendação. A ferramenta indica a coroa Explotools, a matriz, o canal de água e os parâmetros de operação.',
+    step1: 'Qual é a rocha?',
+    step1Lede: 'Digite o nome. A dureza e a abrasividade vêm automaticamente.',
     search: 'Buscar rocha',
-    searchPlaceholder: 'Ex.: quartzito, basalto, arenito…',
-    noRock: 'Nenhuma rocha com esse nome. Você pode seguir ajustando a dureza manualmente.',
-    step2: 'Condições do furo',
-    hardness: 'Dureza (Mohs)',
-    advanced: 'Ajustar dureza manualmente',
-    useRock: 'Usar dureza da rocha',
+    searchPlaceholder: 'Ex.: granito, basalto, itabirito…',
+    noRock: 'Nenhuma rocha com esse nome. Use “Não achei minha rocha” para definir a dureza.',
+    common: 'Mais comuns, toque para escolher:',
+    manualLink: 'Não achei minha rocha: definir a dureza manualmente',
+    listed: 'classificação da tabela técnica',
+    analogy: 'classificada por analogia',
+    unlisted: 'Rocha não listada',
+    unlistedTag: 'dureza definida por você',
+    variable:
+      'Rocha muito variável (alteração, cimentação ou fragmentos). Se a sua for mais dura ou mais mole que o normal, ajuste no cadeado.',
+    hardness: 'Dureza de perfuração',
+    auto: 'automática pela rocha',
+    manual: 'definida manualmente',
+    edit: 'Editar',
+    manualOn: 'Manual',
+    unlock: 'Destravar para editar a dureza',
+    relock: 'Voltar ao automático',
+    cancel: 'Cancelar',
+    warnTitle: 'Modo manual ativado.',
+    warnText:
+      'A partir de agora a dureza é definida por você e não vem mais da rocha selecionada. A recomendação usa este valor. Use só se tiver medição ou experiência no local.',
+    warnTextNoRock:
+      'A partir de agora a dureza é definida por você. A recomendação usa este valor. Use só se tiver medição ou experiência no local.',
+    examples: 'Exemplos:',
     abrasion: 'Abrasividade',
-    abrasionHint:
-      'Estimada pelo teor de quartzo equivalente (EQC) e classe Cerchar (CAI). Mais abrasivo → liga mais dura + ABR + mais água.',
+    abrasionRock: '(estimada pela rocha)',
+    abrasionUser: '(ajustada por você)',
+    abrasionDefault: '(padrão: ajuste se souber)',
+    step2: 'Qual o diâmetro?',
     diameter: 'Diâmetro da coroa',
-    grain: 'Granulometria',
-    formation: 'Característica da formação',
-    formationHint:
-      'Friável/fraturada → liga mais dura e RPM/WOB menores. Compacta → liga mais macia.',
-    goal: 'Objetivo',
-    goalHint:
-      'Penetração → mais área aberta e RPM. Vida útil → menos área aberta, parâmetros conservadores.',
+    step3: 'Como sai o testemunho?',
+    step4: 'Onde fica a sondagem?',
+    step4Lede: 'Estado e cidade do furo. Na próxima vez, já vem preenchido.',
+    step4Privacy: 'Usamos a cidade para mapear onde as coroas Explotools trabalham.',
+    uf: 'Estado',
+    city: 'Cidade',
+    cityPlaceholder: 'Digite a cidade…',
+    cityFirst: 'Escolha o estado primeiro',
+    noCity: 'Nenhuma cidade com esse nome neste estado.',
+    answer: 'Responda as 4 perguntas',
     submit: 'Obter recomendação',
-    empty: 'Sua recomendação aparece aqui.',
-    emptyLede: 'Preencha a rocha e as condições do furo e toque em “Obter recomendação”.',
+    update: 'Atualizar recomendação',
+    ready: 'Recomendação pronta',
+    readyNote: 'Mudou alguma resposta? O botão fica vermelho de novo.',
+    stale: 'Você mudou as respostas. Toque em Atualizar recomendação para ver a coroa certa.',
+    empty: 'Sua coroa aparece aqui.',
+    emptyLede: 'Responda as 4 perguntas e toque em “Obter recomendação”.',
+    emptyItems: ['Rocha ou dureza', 'Diâmetro', 'Condição do testemunho', 'Local da sondagem'],
     copy: 'Copiar link',
     copied: 'Link copiado',
-    catalog: 'Ver o catálogo completo',
-    recent: 'Recomendações recentes',
-    noRecent: 'Nenhuma recomendação ainda.',
+    recent: 'Meu histórico',
+    noRecent: 'Nenhuma coroa ainda. As recomendações que você gerar ficam guardadas aqui.',
     logout: 'Sair',
     tipsTitle: 'Dicas operacionais',
     faqTitle: 'Perguntas frequentes',
@@ -46,42 +75,67 @@
   useHead({ title: text.title })
   useSeoMeta({ description: text.description })
   defineOgImage('Explotools.takumi', {
-    title: 'Seleção de matriz.',
+    title: 'Seleção de coroa.',
     description: 'Qual coroa para a sua rocha? Ferramenta gratuita.',
   })
 
+  const ABRA_LABELS: Record<Abra, string> = { low: 'Baixa', medium: 'Média', high: 'Alta' }
+  const STATUS_LABELS: Record<StatusCoroa, string> = {
+    aguardando: 'Aguardando teste',
+    atendeu: 'Atendeu',
+    ajustada: 'Precisou ajustar',
+  }
+
+  const conditions: { value: Cond; title: string; lede: string }[] = [
+    { value: 'compacta', title: 'Compacto', lede: 'Sai inteiro, com poucas fraturas' },
+    { value: 'fraturada', title: 'Fraturado', lede: 'Sai em pedaços, rocha quebrada' },
+    {
+      value: 'friavel',
+      title: 'Friável',
+      lede: 'Desagrega, lava o testemunho ou perde circulação',
+    },
+  ]
+
   const tips = [
-    'RPM alta para matrizes maiores (mais macias); RPM moderada para matrizes menores (mais duras).',
-    'WOB: use o mínimo que mantenha avanço; excesso pode danificar a coroa.',
-    'Aumente o fluxo de água com maior taxa de penetração; evite fluido muito viscoso.',
-    'Em alta abrasividade, prefira canais Hydra/Face Discharge e considere séries ABR.',
-    'Em terreno quebrado, reduza a RPM (até ~metade) e aplique peso suficiente para manter o avanço.',
+    'Na coroa nova, faça 2–3 minutos a cerca de 50% de rotação e peso para abrir os diamantes.',
+    'Peso na coroa: use o mínimo que mantenha o avanço; peso demais danifica a coroa.',
+    'Aumente a vazão de água quando a penetração subir; evite fluido muito viscoso.',
+    'Em terreno quebrado, trabalhe na metade inferior da rotação e mantenha peso suficiente para avançar.',
+    'Face polida e sem avanço pede liga mais macia; desgaste rápido pede liga mais dura. Avalie a coroa aqui depois do teste.',
   ]
 
   const faq = [
     {
-      q: 'O que é série e o que é matriz?',
-      a: 'Série (ex.: 2-4, 4-6, 6-9, 9-11, 12-14) é a família operacional do produto. Matriz (1–9) é a dureza da liga metálica que libera os diamantes: números menores são mais duros; números maiores são mais macios.',
+      q: 'Como a matriz é escolhida?',
+      a: 'Usamos o guia de seleção de matrizes da tabela técnica das coroas Explotools. Cada matriz cobre uma faixa de dureza da rocha na escala Mohs. Escolhemos a matriz cuja faixa cobre a dureza da sua rocha e cujo centro está mais próximo dela. Depois aplicamos a regra da tabela: rocha fraturada, friável, abrasiva ou de grão grosso pede um número menor; rocha compacta, pouco abrasiva ou de grão fino pede um número maior.',
     },
     {
-      q: 'Por que rocha dura pede matriz mais macia?',
-      a: 'Princípio do autoafiamento: a matriz precisa desgastar na mesma taxa em que a rocha gasta os diamantes, para expor sempre pedras novas. Rocha dura e não abrasiva não desgasta a liga sozinha — então usa-se matriz macia, que se “abre”. Rocha mole e abrasiva desgasta a liga rápido demais — então usa-se matriz dura, para a coroa durar.',
+      q: 'O que significa o número da matriz?',
+      a: 'É a dureza da liga metálica que segura os diamantes, numa escala de 1 a 15. A matriz 1 é a mais dura e a 15 é a mais macia. Rocha dura e não abrasiva pede liga macia (número maior), que se desgasta e expõe diamantes novos. Rocha mole ou abrasiva pede liga dura (número menor), para a coroa não se gastar rápido demais.',
     },
     {
-      q: 'De onde vem a abrasividade se eu só informo o nome?',
-      a: 'Cada litologia tem um teor de quartzo equivalente (EQC) e uma classe de abrasividade Cerchar (CAI) característicos da sua mineralogia. A ferramenta estima isso pelo nome da rocha — você pode ajustar no campo Abrasividade se o terreno local for atípico.',
+      q: 'Por que o arenito e o itabirito friável aparecem como “mole”?',
+      a: 'A dureza usada aqui é a dureza de perfuração da rocha, não a do mineral. O grão de quartzo é duro, mas a rocha como um todo perfura como uma rocha mole. A abrasividade alta é considerada à parte e desce a matriz.',
     },
     {
-      q: 'O que é ABR?',
-      a: 'ABR identifica variantes para terrenos abrasivos. Em rochas com muito quartzo/hematita (granito, gnaisse, arenito quartzoso, itabirito), considere 7 ABR ou 9 ABR.',
+      q: 'Quando definir a dureza manualmente?',
+      a: 'Quando a sua rocha não está na lista, quando ela está marcada como “muito variável”, ou quando você tem medição ou experiência local que indica uma dureza diferente. Toque no cadeado para destravar. Enquanto o modo manual estiver ativo, a recomendação usa o valor que você definir, e isso aparece destacado no resultado.',
     },
     {
-      q: 'Como são definidas as principais marcas de coroa?',
-      a: 'Não existe tabela pública que diga “grade X de uma marca = grade Y de outra”. O único eixo que todos os fabricantes publicam é a escala Mohs. Por isso alinhamos os grades pela faixa de Mohs que cada um cobre, usando dados oficiais: Boart Longyear (cores Longyear + UMX), Fordia/Epiroc (HERO), Di-Corp (CoreMatrix; sufixos A=abrasivo, E=vida, F=penetração), Dimatec (séries S e XT) e Hayden (escala 1–16). Sempre confirme com o catálogo oficial do fabricante.',
+      q: 'Qual canal de água usar?',
+      a: 'Standard para rocha compacta e de grão fino: tem mais diamantes na face e dura mais. Wide para rocha de grão grosso, fraturada ou quebrada: dá mais vazão e penetra mais. Lateral/Superflush para formação friável, que lava o testemunho ou perde circulação. Wide e Superflush são indicados a partir do diâmetro N.',
+    },
+    {
+      q: 'Como funciona o histórico e a avaliação?',
+      a: 'Toda coroa que você gera fica no seu histórico. Depois de testar no furo, abra pelo “Meu histórico” e conte como foi: se atendeu, ou o que precisou ajustar. Se precisou, a ferramenta gera na hora a coroa ajustada. As avaliações ajudam a Explotools a refinar as recomendações.',
+    },
+    {
+      q: 'Como são definidas as outras marcas?',
+      a: 'Não existe tabela pública que diga “grade X de uma marca = grade Y de outra”. O eixo que todos os fabricantes publicam é a escala Mohs, então alinhamos pela mesma dureza: Boart Longyear, Fordia/Epiroc (HERO), Di-Corp, Dimatec e Hayden. Quando a própria marca indica um grade pelo nome da rocha, usamos a indicação dela. Confirme sempre no catálogo do fabricante.',
     },
     {
       q: 'Os números são exatos?',
-      a: 'Não. São um ponto de partida baseado em referências técnicas e de fabricantes. Ajuste sempre pela resposta do furo (taxa de penetração, vibração, polimento da face). Os valores reais de cada maciço dependem de ensaio.',
+      a: 'São o ponto de partida recomendado pela tabela técnica. O que fecha a escolha é a resposta do furo — por isso a avaliação depois do teste é tão importante.',
     },
   ]
 
@@ -90,72 +144,168 @@
   const toast = useToast()
   const gate = ref(false)
   const loading = ref(false)
-  const result = ref<RecomendacaoMongo | null>(null)
+  const result = ref<RecomendacaoCoroa | null>(null)
+  const resultKey = ref<string | null>(null)
   const resultEl = useTemplateRef<HTMLElement>('resultEl')
   const { $lenis } = useNuxtApp()
 
-  const state = ref<RecomendacaoSchema>({
-    rocha: '',
-    mohs: 6.5,
-    abrasividade: 'Média',
-    formacao: 'Moderada',
-    granulometria: 'Médio',
-    diametro: 'NQ',
-    objetivo: 'Equilíbrio',
-  })
-
-  const mohs = computed({
-    get: () => [state.value.mohs],
-    set: (value: number[]) => {
-      state.value.mohs = value[0] ?? state.value.mohs
-    },
-  })
-
-  const advanced = ref(false)
+  /* ===== 1. Rocha ===== */
+  const rock = ref<Rock | null>(null)
+  const picked = ref<string>('')
   const term = ref('')
-  const rock = computed(() => findRock(state.value.rocha))
-  const locked = computed(() => Boolean(rock.value) && !advanced.value)
+  const searchOpen = ref(false)
+  const manual = ref(false)
+  const manualH = ref(5)
+  const abra = ref<Abra | null>(null)
+  const matches = computed(() => searchRocks(term.value, 12))
 
-  function normalize(value: string): string {
-    return value
-      .normalize('NFD')
-      .replaceAll(/\p{Diacritic}/gu, '')
-      .toLowerCase()
-  }
-
-  const matches = computed(() => {
-    const query = normalize(term.value.trim())
-    const list = query ? rochas.filter((label) => normalize(label).includes(query)) : rochas
-    return list.slice(0, 60)
+  watch(term, (value) => {
+    if (!value.trim()) searchOpen.value = false
   })
 
-  function abraLabel(abra: 'low' | 'medium' | 'high'): RecomendacaoSchema['abrasividade'] {
-    if (abra === 'low') return 'Baixa'
-    return abra === 'high' ? 'Alta' : 'Média'
+  watch(picked, (name) => {
+    const found = findRock(name)
+    if (found) pickRock(found)
+  })
+
+  function pickRock(found: Rock): void {
+    rock.value = found
+    picked.value = found.n
+    term.value = found.n
+    manual.value = false
+    abra.value = found.abra
+    searchOpen.value = false
   }
 
-  watch(
-    () => state.value.rocha,
-    () => {
-      const found = rock.value
-      advanced.value = false
-      if (!found) return
-      state.value.mohs = found.mohs
-      state.value.abrasividade = abraLabel(found.abra)
-    },
+  function setManual(on: boolean): void {
+    // Começa na dureza atual, antes de ligar o modo: destravar não muda a recomendação.
+    if (on && !manual.value) manualH.value = startManualH(rock.value)
+    manual.value = on
+    if (on && !abra.value) abra.value = 'medium'
+    if (!on && !rock.value) abra.value = null
+  }
+
+  const hardnessValue = computed(() => {
+    if (manual.value) return manualH.value
+    return rock.value ? CLASSES[rock.value.cls].H : null
+  })
+  const hardnessClass = computed<RockClass | null>(() =>
+    hardnessValue.value === null ? null : classOf(hardnessValue.value),
   )
+  const slider = computed({
+    get: () => [manualH.value],
+    set: (value: number[]) => {
+      manualH.value = value[0] ?? manualH.value
+    },
+  })
+  const abraLabel = computed({
+    get: () => (abra.value ? ABRA_LABELS[abra.value] : ''),
+    set: (label: string) => {
+      const key = (Object.keys(ABRA_LABELS) as Abra[]).find((item) => ABRA_LABELS[item] === label)
+      if (key) abra.value = key
+    },
+  })
+  const abraNote = computed(() => {
+    if (!rock.value) return text.abrasionDefault
+    return abra.value === rock.value.abra ? text.abrasionRock : text.abrasionUser
+  })
 
-  function toggleAdvanced(): void {
-    advanced.value = !advanced.value
-    if (!advanced.value && rock.value) state.value.mohs = rock.value.mohs
+  /* ===== 2 e 3. Diâmetro e testemunho ===== */
+  const size = ref('')
+  const cond = ref('')
+
+  /* ===== 4. Local da sondagem ===== */
+  const uf = ref('')
+  const municipio = ref('')
+  const cityTerm = ref('')
+  const cityOpen = ref(false)
+  const cidades = ref<{ codigo: number; nome: string }[]>([])
+  const cidade = computed(
+    () => cidades.value.find((item) => String(item.codigo) === municipio.value) ?? null,
+  )
+  const cityMatches = computed(() => {
+    const query = normText(cityTerm.value).trim()
+    if (!query) return []
+    const starts = cidades.value.filter((item) => normText(item.nome).startsWith(query))
+    const contains = cidades.value.filter(
+      (item) => !normText(item.nome).startsWith(query) && normText(item.nome).includes(query),
+    )
+    return [...starts, ...contains].slice(0, 12)
+  })
+
+  async function loadCidades(sigla: string): Promise<void> {
+    cidades.value = sigla
+      ? await $fetch<{ codigo: number; nome: string }[]>(`/api/municipios/${sigla}`).catch(() => [])
+      : []
   }
+
+  watch(uf, async (sigla, previous) => {
+    if (previous) {
+      municipio.value = ''
+      cityTerm.value = ''
+    }
+    await loadCidades(sigla)
+  })
+
+  // Nome exibido no campo para o código IBGE escolhido (antes da lista carregar, usa o último local).
+  const lastLocal = ref<LocalSondagem | null>(null)
+  function cityLabel(value: string): string {
+    if (cidade.value && String(cidade.value.codigo) === value) return cidade.value.nome
+    return lastLocal.value && String(lastLocal.value.codigoIbge) === value
+      ? lastLocal.value.cidade
+      : ''
+  }
+
+  watch(cityTerm, (value) => {
+    if (!value.trim()) cityOpen.value = false
+  })
+
+  /* ===== Botão Obter recomendação ===== */
+  const answered = computed(
+    () =>
+      (hardnessValue.value === null ? 0 : 1) +
+      (size.value ? 1 : 0) +
+      (cond.value ? 1 : 0) +
+      (municipio.value ? 1 : 0),
+  )
+  const formKey = computed(() =>
+    answered.value < 4
+      ? null
+      : JSON.stringify([
+          rock.value?.n ?? null,
+          manual.value ? manualH.value : null,
+          abra.value,
+          size.value,
+          cond.value,
+          municipio.value,
+        ]),
+  )
+  const fresh = computed(
+    () => Boolean(result.value) && formKey.value !== null && formKey.value === resultKey.value,
+  )
+  const stale = computed(() => Boolean(result.value) && !fresh.value)
+  const goLabel = computed(() => {
+    if (answered.value < 4) return `${text.answer} (${answered.value}/4)`
+    if (fresh.value) return text.ready
+    return result.value ? text.update : text.submit
+  })
 
   const { data: recent, refresh: refreshRecent } = await useFetch<RecomendacaoResumo[]>(
     '/api/recomendacoes',
-    {
-      default: () => [],
-      immediate: loggedIn.value,
+    { default: () => [], immediate: loggedIn.value },
+  )
+
+  // Começa com o último local usado pela pessoa (fica no cadastro, vale em qualquer aparelho).
+  watch(
+    recent,
+    (list) => {
+      const last = list.find((item) => item.local)?.local
+      if (!last || uf.value) return
+      lastLocal.value = last
+      uf.value = last.uf
+      municipio.value = String(last.codigoIbge)
     },
+    { immediate: true },
   )
 
   onMounted(() => {
@@ -166,25 +316,43 @@
     await refreshRecent()
   }
 
+  async function scrollToResult(): Promise<void> {
+    await nextTick()
+    if (!resultEl.value) return
+    if ($lenis) $lenis.scrollTo(resultEl.value, { offset: -90, duration: 1.2 })
+    else resultEl.value.scrollIntoView({ behavior: 'smooth' })
+  }
+
   async function submit(): Promise<void> {
+    if (answered.value < 4 || loading.value) return
+    if (fresh.value) {
+      await scrollToResult()
+      return
+    }
     if (!loggedIn.value) {
       gate.value = true
       return
     }
-    const body = safeParse(recomendacaoSchema, state.value)
+    const body = safeParse(recomendacaoSchema, {
+      rocha: rock.value?.n ?? null,
+      durezaManual: manual.value ? manualH.value : null,
+      abrasividade: abra.value,
+      diametro: size.value,
+      testemunho: cond.value,
+      uf: uf.value,
+      municipio: Number(municipio.value),
+    })
     if (!body.success) {
-      toast.error(body.issues[0]?.message ?? 'Confira os campos')
+      toast.error(body.issues[0]?.message ?? 'Confira as respostas')
       return
     }
     loading.value = true
     try {
+      const key = formKey.value
       result.value = await $fetch('/api/recomendacoes', { method: 'POST', body: body.output })
+      resultKey.value = key
       await refreshRecent()
-      await nextTick()
-      if (resultEl.value && globalThis.innerWidth < 1024) {
-        if ($lenis) $lenis.scrollTo(resultEl.value, { offset: -90, duration: 1.2 })
-        else resultEl.value.scrollIntoView({ behavior: 'smooth' })
-      }
+      if (globalThis.innerWidth < 1024) await scrollToResult()
     } catch (error) {
       toast.fail(error)
       if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 401) {
@@ -194,6 +362,12 @@
     } finally {
       loading.value = false
     }
+  }
+
+  async function evaluated(resposta: AvaliacaoResposta): Promise<void> {
+    result.value = resposta.ajustada ?? resposta.recomendacao
+    await refreshRecent()
+    if (resposta.ajustada) await scrollToResult()
   }
 
   const { copy } = useClipboard()
@@ -270,7 +444,7 @@
               <PopoverContent
                 align="end"
                 :side-offset="8"
-                class="pop z-60 w-80 rounded-2xl border border-line-strong bg-rocha-2 p-2 shadow-float">
+                class="pop z-60 max-h-[70vh] w-80 overflow-y-auto rounded-2xl border border-line-strong bg-rocha-2 p-2 shadow-float">
                 <p v-if="!recent.length" class="p-3 text-[0.875rem] text-muted">
                   {{ text.noRecent }}
                 </p>
@@ -280,12 +454,16 @@
                   :to="`/selecao-matriz/${item.uid}`"
                   class="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-fg/5">
                   <span class="min-w-0">
-                    <span class="block truncate text-[0.875rem] font-semibold">{{
-                      item.rocha || 'Sem rocha'
-                    }}</span>
-                    <span class="block font-mono text-[0.6875rem] text-faint">{{
-                      formatDate(item.createdAt)
-                    }}</span>
+                    <span class="block truncate text-[0.875rem] font-semibold">
+                      {{ item.rocha || text.unlisted }}
+                      <span v-if="item.diametro" class="font-normal text-muted">
+                        · {{ item.diametro }}</span
+                      >
+                    </span>
+                    <span class="block font-mono text-[0.6875rem] text-faint">
+                      {{ formatDate(item.createdAt) }}
+                      <template v-if="item.status"> · {{ STATUS_LABELS[item.status] }}</template>
+                    </span>
                   </span>
                   <span class="display text-[1.75rem] leading-none text-red">{{
                     item.matriz
@@ -312,20 +490,26 @@
           class="flex flex-col gap-6 rounded-[2rem] border border-line bg-rocha p-6 sm:p-8"
           novalidate
           @submit.prevent="submit">
+          <!-- 1. Rocha -->
           <div>
             <p class="flex items-center gap-3">
               <span
-                class="flex size-7 items-center justify-center rounded-lg bg-red font-mono text-[0.8125rem] font-semibold text-osso"
-                >1</span
-              >
+                class="flex size-7 items-center justify-center rounded-lg font-mono text-[0.8125rem] font-semibold"
+                :class="hardnessValue === null ? 'bg-red text-osso' : 'bg-fg/10 text-fg'">
+                <Icon v-if="hardnessValue !== null" name="ph:check-bold" class="size-3.5" />
+                <template v-else>1</template>
+              </span>
               <span class="text-title font-semibold">{{ text.step1 }}</span>
             </p>
             <p class="mt-2 text-[0.875rem] text-muted">{{ text.step1Lede }}</p>
-          </div>
 
-          <div>
-            <label for="rocha" class="text-[0.875rem] font-semibold">{{ text.search }}</label>
-            <ComboboxRoot v-model="state.rocha" ignore-filter open-on-focus class="relative mt-2.5">
+            <label for="rocha" class="sr-only">{{ text.search }}</label>
+            <ComboboxRoot
+              v-model="picked"
+              v-model:open="searchOpen"
+              ignore-filter
+              :reset-search-term-on-blur="false"
+              class="relative mt-4">
               <ComboboxAnchor
                 class="flex h-12 items-center gap-2 rounded-xl border border-line-strong bg-furo/60 px-4 focus-within:border-red focus-within:ring-4 focus-within:ring-red/20">
                 <Icon name="ph:magnifying-glass" class="size-4 shrink-0 text-faint" />
@@ -333,13 +517,8 @@
                   id="rocha"
                   v-model="term"
                   :placeholder="text.searchPlaceholder"
-                  class="h-full flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-faint"
-                  :display-value="(value: string) => value" />
-                <ComboboxTrigger
-                  class="text-faint hover:text-fg"
-                  aria-label="Abrir lista de rochas">
-                  <Icon name="ph:caret-down" class="size-4" />
-                </ComboboxTrigger>
+                  autocomplete="off"
+                  class="h-full flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-faint" />
               </ComboboxAnchor>
               <ComboboxPortal>
                 <ComboboxContent
@@ -351,13 +530,13 @@
                       text.noRock
                     }}</ComboboxEmpty>
                     <ComboboxItem
-                      v-for="label in matches"
-                      :key="label"
-                      :value="label"
+                      v-for="item in matches"
+                      :key="item.n"
+                      :value="item.n"
                       class="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-[0.875rem] outline-none data-highlighted:bg-red data-highlighted:text-osso">
-                      <span>{{ label.split(' - Mohs')[0] }}</span>
-                      <span class="font-mono text-[0.75rem] opacity-70"
-                        >Mohs {{ label.split(' - Mohs ')[1] }}</span
+                      <span>{{ item.n }}</span>
+                      <span class="text-right font-mono text-[0.6875rem] opacity-70"
+                        >{{ CLASSES[item.cls].label }} · abras. {{ PT.abra[item.abra] }}</span
                       >
                     </ComboboxItem>
                   </ComboboxViewport>
@@ -365,120 +544,320 @@
               </ComboboxPortal>
             </ComboboxRoot>
 
+            <p class="mt-4 text-[0.75rem] text-faint">{{ text.common }}</p>
+            <div class="mt-2 flex flex-wrap gap-1.5">
+              <button
+                v-for="name in COMMON_ROCKS"
+                :key="name"
+                type="button"
+                :aria-pressed="rock?.n === name"
+                class="h-9 rounded-full border px-3.5 text-[0.8125rem] font-medium transition-colors"
+                :class="
+                  rock?.n === name
+                    ? 'border-red bg-red text-osso'
+                    : 'border-line-strong text-fg/85 hover:border-fg/50'
+                "
+                @click="pickRock(findRock(name) as Rock)">
+                {{ name }}
+              </button>
+            </div>
+            <button
+              v-if="!rock && !manual"
+              type="button"
+              class="mt-4 text-[0.8125rem] font-semibold text-red hover:underline"
+              @click="setManual(true)">
+              {{ text.manualLink }}
+            </button>
+
             <Transition
               enter-active-class="transition duration-300 ease-out-quint"
               enter-from-class="-translate-y-2 opacity-0"
               leave-active-class="transition duration-150"
               leave-to-class="opacity-0">
-              <div v-if="rock" class="mt-3 rounded-2xl border border-red/30 bg-red/8 p-4">
-                <p class="display text-[1.5rem] leading-none">{{ rock.n }}</p>
-                <div class="mt-3 flex flex-wrap gap-1.5 text-[0.75rem]">
-                  <span class="rounded-full border border-line-strong px-2.5 py-1"
-                    >Mohs <b>{{ rock.mohs }}</b></span
-                  >
-                  <span class="rounded-full border border-line-strong px-2.5 py-1"
-                    >Quartzo eq. <b>~{{ rock.eqc }}%</b></span
-                  >
-                  <span class="rounded-full border border-line-strong px-2.5 py-1"
-                    >CAI <b>{{ rock.cai }}</b> ({{ caiClass(rock.cai) }})</span
-                  >
-                  <span class="rounded-full border border-line-strong px-2.5 py-1"
-                    >UCS <b>{{ rock.ucs[0] }}–{{ rock.ucs[1] }} MPa</b></span
-                  >
+              <div
+                v-if="rock || manual"
+                class="mt-4 flex flex-col gap-4 rounded-2xl border border-red/30 bg-red/8 p-4">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                  <p class="display text-[1.5rem] leading-none">{{ rock?.n ?? text.unlisted }}</p>
+                  <span
+                    class="rounded-full border border-line-strong px-2.5 py-1 text-[0.6875rem] text-muted">
+                    {{ rock ? (rock.dt ? text.listed : text.analogy) : text.unlistedTag }}
+                  </span>
                 </div>
+
+                <p v-if="rock?.variable && !manual" class="flex gap-2 text-[0.8125rem] text-fg/85">
+                  <Icon name="ph:warning" class="mt-0.5 size-4 shrink-0 text-red" />
+                  {{ text.variable }}
+                </p>
+
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <p class="text-[0.75rem] text-muted">{{ text.hardness }}</p>
+                    <p v-if="hardnessClass" class="text-[1.0625rem] font-semibold">
+                      {{ CLASSES[hardnessClass].label }} · Mohs {{ fmtBR(hardnessValue ?? 0) }}
+                    </p>
+                    <p class="font-mono text-[0.6875rem] text-faint">
+                      {{ manual ? text.manual : text.auto }}
+                    </p>
+                  </div>
+                  <button
+                    v-if="rock"
+                    type="button"
+                    :aria-pressed="manual"
+                    :title="manual ? text.relock : text.unlock"
+                    class="flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[0.8125rem] font-semibold transition-colors"
+                    :class="
+                      manual
+                        ? 'border-red bg-red text-osso'
+                        : 'border-line-strong hover:border-fg/50'
+                    "
+                    @click="setManual(!manual)">
+                    <Icon :name="manual ? 'ph:lock-open' : 'ph:lock'" class="size-4" />
+                    {{ manual ? text.manualOn : text.edit }}
+                  </button>
+                </div>
+
+                <template v-if="manual">
+                  <p
+                    role="alert"
+                    class="rounded-xl border border-red/50 bg-furo/60 px-3 py-2.5 text-[0.8125rem] text-fg/90">
+                    <b>{{ text.warnTitle }}</b> {{ rock ? text.warnText : text.warnTextNoRock }}
+                    <button
+                      type="button"
+                      class="ml-1 font-semibold text-red hover:underline"
+                      @click="setManual(false)">
+                      {{ rock ? text.relock : text.cancel }}
+                    </button>
+                  </p>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="(info, key) in CLASSES"
+                      :key="key"
+                      type="button"
+                      :aria-pressed="hardnessClass === key"
+                      class="h-9 rounded-full border px-3 text-[0.8125rem] font-medium transition-colors"
+                      :class="
+                        hardnessClass === key
+                          ? 'border-red bg-red text-osso'
+                          : 'border-line-strong text-fg/85 hover:border-fg/50'
+                      "
+                      @click="manualH = info.H">
+                      {{ info.label }}
+                    </button>
+                  </div>
+                  <SliderRoot
+                    v-model="slider"
+                    :min="1.5"
+                    :max="10"
+                    :step="0.1"
+                    class="relative flex h-6 touch-none items-center select-none">
+                    <SliderTrack
+                      class="relative h-1.5 grow overflow-hidden rounded-full bg-[linear-gradient(90deg,#3a3a40,#fe0018)]">
+                      <SliderRange class="absolute h-full" />
+                    </SliderTrack>
+                    <SliderThumb
+                      class="block size-6 rounded-full border-4 border-rocha bg-osso shadow-float transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-red"
+                      aria-label="Dureza de perfuração (Mohs)" />
+                  </SliderRoot>
+                  <p v-if="hardnessClass" class="text-[0.75rem] text-muted">
+                    {{ text.examples }} {{ CLASSES[hardnessClass].ex }}
+                  </p>
+                </template>
+
+                <MatrizSegmented
+                  v-model="abraLabel"
+                  :label="`${text.abrasion} ${abraNote}`"
+                  :options="Object.values(ABRA_LABELS)" />
               </div>
             </Transition>
           </div>
 
           <div class="h-px bg-line" />
 
-          <p class="flex items-center gap-3">
-            <span
-              class="flex size-7 items-center justify-center rounded-lg bg-red font-mono text-[0.8125rem] font-semibold text-osso"
-              >2</span
-            >
-            <span class="text-title font-semibold">{{ text.step2 }}</span>
-          </p>
-
+          <!-- 2. Diâmetro -->
           <div>
-            <div class="flex items-baseline justify-between">
-              <span id="mohs" class="text-[0.875rem] font-semibold">{{ text.hardness }}</span>
+            <p class="flex items-center gap-3">
               <span
-                class="font-mono text-[1.125rem] tabular-nums"
-                :class="locked ? 'text-muted' : 'text-fg'"
-                >{{ state.mohs.toFixed(1) }}</span
-              >
-            </div>
-            <SliderRoot
-              v-model="mohs"
-              :min="1"
-              :max="10"
-              :step="0.1"
-              :disabled="locked"
-              aria-labelledby="mohs"
-              class="relative mt-4 flex h-6 touch-none items-center select-none data-disabled:opacity-50">
-              <SliderTrack
-                class="relative h-1.5 grow overflow-hidden rounded-full bg-[linear-gradient(90deg,#3a3a40,#fe0018)]">
-                <SliderRange class="absolute h-full" />
-              </SliderTrack>
-              <SliderThumb
-                class="block size-6 rounded-full border-4 border-rocha bg-osso shadow-float transition-transform hover:scale-110"
-                aria-label="Dureza Mohs" />
-            </SliderRoot>
-            <button
-              v-if="rock"
-              type="button"
-              class="mt-2 text-[0.8125rem] font-semibold text-red hover:underline"
-              @click="toggleAdvanced">
-              {{ advanced ? text.useRock : text.advanced }}
-            </button>
+                class="flex size-7 items-center justify-center rounded-lg font-mono text-[0.8125rem] font-semibold"
+                :class="size ? 'bg-fg/10 text-fg' : 'bg-red text-osso'">
+                <Icon v-if="size" name="ph:check-bold" class="size-3.5" />
+                <template v-else>2</template>
+              </span>
+              <span class="text-title font-semibold">{{ text.step2 }}</span>
+            </p>
+            <MatrizSegmented v-model="size" class="mt-4" :label="text.diameter" :options="SIZES" />
           </div>
 
-          <MatrizSegmented
-            v-model="state.abrasividade"
-            :label="text.abrasion"
-            :options="ABRASIVIDADES"
-            :hint="text.abrasionHint" />
-          <MatrizSegmented v-model="state.diametro" :label="text.diameter" :options="DIAMETROS" />
-          <MatrizSegmented
-            v-model="state.granulometria"
-            :label="text.grain"
-            :options="GRANULOMETRIAS" />
-          <MatrizSegmented
-            v-model="state.formacao"
-            :label="text.formation"
-            :options="FORMACOES"
-            :hint="text.formationHint" />
-          <MatrizSegmented
-            v-model="state.objetivo"
-            :label="text.goal"
-            :options="OBJETIVOS"
-            :hint="text.goalHint" />
+          <div class="h-px bg-line" />
 
-          <Btn type="submit" size="lg" :loading="loading" icon="ph:diamond" class="w-full">{{
-            text.submit
-          }}</Btn>
+          <!-- 3. Testemunho -->
+          <div>
+            <p id="testemunho" class="flex items-center gap-3">
+              <span
+                class="flex size-7 items-center justify-center rounded-lg font-mono text-[0.8125rem] font-semibold"
+                :class="cond ? 'bg-fg/10 text-fg' : 'bg-red text-osso'">
+                <Icon v-if="cond" name="ph:check-bold" class="size-3.5" />
+                <template v-else>3</template>
+              </span>
+              <span class="text-title font-semibold">{{ text.step3 }}</span>
+            </p>
+            <RadioGroupRoot
+              v-model="cond"
+              aria-labelledby="testemunho"
+              class="mt-4 grid gap-2 sm:grid-cols-3">
+              <RadioGroupItem
+                v-for="option in conditions"
+                :key="option.value"
+                :value="option.value"
+                class="flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors data-[state=checked]:border-red data-[state=checked]:bg-red/10 data-[state=unchecked]:border-line-strong data-[state=unchecked]:hover:border-fg/50 sm:flex-col sm:items-start">
+                <svg
+                  viewBox="0 0 58 30"
+                  fill="currentColor"
+                  class="h-7 w-14 shrink-0"
+                  :class="cond === option.value ? 'text-red' : 'text-fg/60'"
+                  aria-hidden="true">
+                  <rect
+                    v-if="option.value === 'compacta'"
+                    x="2"
+                    y="9"
+                    width="54"
+                    height="12"
+                    rx="3" />
+                  <template v-else-if="option.value === 'fraturada'">
+                    <path d="M4 9h13l3 12H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z" />
+                    <path d="M21 9h13l-3 12h-7z" />
+                    <path d="M38 9h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H35z" />
+                  </template>
+                  <template v-else>
+                    <rect x="3" y="12" width="9" height="8" rx="2.5" />
+                    <rect x="15" y="9" width="7" height="6" rx="2" />
+                    <circle cx="20" cy="20" r="2" />
+                    <rect x="26" y="13" width="8" height="7" rx="2.5" />
+                    <circle cx="38" cy="11" r="2.2" />
+                    <circle cx="41" cy="19" r="2.8" />
+                    <rect x="46" y="12" width="6" height="5" rx="2" />
+                    <circle cx="54" cy="19" r="1.8" />
+                  </template>
+                </svg>
+                <span>
+                  <span class="block text-[0.9375rem] font-semibold">{{ option.title }}</span>
+                  <span class="block text-[0.75rem] text-muted">{{ option.lede }}</span>
+                </span>
+              </RadioGroupItem>
+            </RadioGroupRoot>
+          </div>
+
+          <div class="h-px bg-line" />
+
+          <!-- 4. Local da sondagem -->
+          <div>
+            <p class="flex items-center gap-3">
+              <span
+                class="flex size-7 items-center justify-center rounded-lg font-mono text-[0.8125rem] font-semibold"
+                :class="municipio ? 'bg-fg/10 text-fg' : 'bg-red text-osso'">
+                <Icon v-if="municipio" name="ph:check-bold" class="size-3.5" />
+                <template v-else>4</template>
+              </span>
+              <span class="text-title font-semibold">{{ text.step4 }}</span>
+            </p>
+            <p class="mt-2 text-[0.875rem] text-muted">{{ text.step4Lede }}</p>
+            <div class="mt-4 grid gap-2 sm:grid-cols-[11rem_1fr]">
+              <label for="uf" class="sr-only">{{ text.uf }}</label>
+              <select
+                id="uf"
+                v-model="uf"
+                class="h-12 rounded-xl border border-line-strong bg-furo/60 px-3 text-[0.9375rem] outline-none focus:border-red focus:ring-4 focus:ring-red/20">
+                <option value="" disabled class="bg-rocha">{{ text.uf }}</option>
+                <option v-for="item in UFS" :key="item.sigla" :value="item.sigla" class="bg-rocha">
+                  {{ item.sigla }} · {{ item.nome }}
+                </option>
+              </select>
+              <label for="cidade" class="sr-only">{{ text.city }}</label>
+              <ComboboxRoot
+                v-model="municipio"
+                v-model:open="cityOpen"
+                ignore-filter
+                :reset-search-term-on-blur="false"
+                :disabled="!uf"
+                class="relative">
+                <ComboboxAnchor
+                  class="flex h-12 items-center gap-2 rounded-xl border border-line-strong bg-furo/60 px-4 focus-within:border-red focus-within:ring-4 focus-within:ring-red/20 data-disabled:opacity-50">
+                  <Icon name="ph:map-pin" class="size-4 shrink-0 text-faint" />
+                  <ComboboxInput
+                    id="cidade"
+                    v-model="cityTerm"
+                    :display-value="cityLabel"
+                    :placeholder="uf ? text.cityPlaceholder : text.cityFirst"
+                    autocomplete="off"
+                    class="h-full min-w-0 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-faint" />
+                </ComboboxAnchor>
+                <ComboboxPortal>
+                  <ComboboxContent
+                    position="popper"
+                    :side-offset="6"
+                    class="pop z-60 max-h-72 w-(--reka-combobox-trigger-width) overflow-hidden rounded-2xl border border-line-strong bg-rocha-2 shadow-float">
+                    <ComboboxViewport class="max-h-72 overflow-y-auto p-1.5">
+                      <ComboboxEmpty class="p-3 text-[0.8125rem] text-muted">{{
+                        text.noCity
+                      }}</ComboboxEmpty>
+                      <ComboboxItem
+                        v-for="item in cityMatches"
+                        :key="item.codigo"
+                        :value="String(item.codigo)"
+                        class="cursor-pointer rounded-xl px-3 py-2 text-[0.875rem] outline-none data-highlighted:bg-red data-highlighted:text-osso">
+                        {{ item.nome }}
+                      </ComboboxItem>
+                    </ComboboxViewport>
+                  </ComboboxContent>
+                </ComboboxPortal>
+              </ComboboxRoot>
+            </div>
+            <p class="mt-2 text-[0.75rem] text-faint">{{ text.step4Privacy }}</p>
+          </div>
+
+          <div>
+            <Btn
+              type="submit"
+              size="lg"
+              :variant="answered < 4 || fresh ? 'ghost' : 'red'"
+              :loading="loading"
+              :disabled="answered < 4 || loading"
+              :icon="fresh ? 'ph:check-bold' : 'ph:diamond'"
+              class="w-full">
+              {{ goLabel }}
+            </Btn>
+            <p v-if="fresh" class="mt-2 text-center text-[0.75rem] text-faint" aria-live="polite">
+              {{ text.readyNote }}
+            </p>
+          </div>
         </form>
 
         <div ref="resultEl" class="flex flex-col gap-4 lg:sticky lg:top-24">
+          <p
+            v-if="stale"
+            role="status"
+            class="rounded-2xl border border-red/50 bg-red/10 px-4 py-3 text-[0.875rem] text-fg/90">
+            {{ text.stale }}
+          </p>
           <Transition
             mode="out-in"
             enter-active-class="transition duration-500 ease-out-quint"
             enter-from-class="translate-y-6 opacity-0 blur-sm"
             leave-active-class="transition duration-200"
             leave-to-class="opacity-0">
-            <MatrizResult v-if="result" :key="result.uid" :data="result">
+            <MatrizCoroa
+              v-if="result"
+              :key="result.uid"
+              :data="result"
+              :class="stale ? 'pointer-events-none opacity-40 grayscale' : ''"
+              :aria-hidden="stale">
               <template #actions>
-                <Btn icon="ph:link" @click="share">{{ text.copy }}</Btn>
-                <Btn
-                  to="/catalogos/catalogo2025.pdf"
-                  external
-                  variant="ghost"
-                  icon="ph:download-simple"
-                  >{{ text.catalog }}</Btn
-                >
+                <Btn variant="ghost" icon="ph:link" @click="share">{{ text.copy }}</Btn>
               </template>
-            </MatrizResult>
+              <template #feedback>
+                <MatrizAvaliacao :data="result" @avaliada="evaluated" />
+              </template>
+            </MatrizCoroa>
             <div
               v-else
               class="relative flex min-h-[28rem] flex-col items-center justify-center overflow-hidden rounded-[2rem] border border-dashed border-line-strong p-8 text-center">
@@ -493,6 +872,30 @@
               </svg>
               <p class="relative mt-6 display text-[2rem] leading-none">{{ text.empty }}</p>
               <p class="relative mt-3 max-w-sm text-[0.9375rem] text-muted">{{ text.emptyLede }}</p>
+              <ul class="relative mt-6 flex flex-col gap-2 text-left text-[0.875rem]">
+                <li
+                  v-for="(item, index) in text.emptyItems"
+                  :key="item"
+                  class="flex items-center gap-2"
+                  :class="
+                    [hardnessValue !== null, Boolean(size), Boolean(cond), Boolean(municipio)][
+                      index
+                    ]
+                      ? 'text-fg'
+                      : 'text-faint'
+                  ">
+                  <Icon
+                    :name="
+                      [hardnessValue !== null, Boolean(size), Boolean(cond), Boolean(municipio)][
+                        index
+                      ]
+                        ? 'ph:check-circle-fill'
+                        : 'ph:circle'
+                    "
+                    class="size-4 text-red" />
+                  {{ item }}
+                </li>
+              </ul>
             </div>
           </Transition>
         </div>

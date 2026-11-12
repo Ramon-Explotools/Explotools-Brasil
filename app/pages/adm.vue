@@ -16,6 +16,7 @@
     logout: 'Sair',
     leads: 'Leads',
     users: 'Usuários',
+    map: 'Mapa',
     total: 'Leads cadastrados',
     wireline: 'Trabalham com wireline',
     recs: 'Recomendações geradas',
@@ -233,6 +234,7 @@
             v-for="option in [
               { value: 'leads', label: text.leads, icon: 'ph:address-book' },
               { value: 'users', label: text.users, icon: 'ph:shield-check' },
+              { value: 'mapa', label: text.map, icon: 'ph:map-trifold' },
             ]"
             :key="option.value"
             :value="option.value"
@@ -529,6 +531,10 @@
               </button>
             </Motion>
           </ul>
+        </TabsContent>
+
+        <TabsContent value="mapa" class="mt-8 outline-none">
+          <AdmMapa />
         </TabsContent>
       </TabsRoot>
     </div>

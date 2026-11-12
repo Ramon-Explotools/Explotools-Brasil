@@ -1,16 +1,32 @@
 <script setup lang="ts">
+  import { brand } from '~/data/content'
+
   const text = {
-    title: 'Recomendação de matriz',
+    title: 'Recomendação de coroa',
     back: 'Fazer nova seleção',
     missing: 'Recomendação não encontrada.',
     missingLede: 'O link pode estar incompleto ou a recomendação foi removida.',
-    catalog: 'Ver o catálogo completo',
     talk: 'Falar com um especialista',
   }
 
   const route = useRoute()
   const uid = computed(() => String(route.params.uid ?? ''))
   const { data } = await useFetch<RecomendacaoMongo>(() => `/api/recomendacoes/${uid.value}`)
+  const { user } = useUserSession()
+
+  // Documentos antigos (matriz 1–9) continuam abrindo no formato antigo.
+  const coroa = computed(() =>
+    data.value && 'versao' in data.value && data.value.versao === 2 ? data.value : null,
+  )
+  const legada = computed(() =>
+    data.value && !coroa.value ? (data.value as RecomendacaoLegada) : null,
+  )
+  const owner = computed(() => Boolean(coroa.value && user.value?.email === coroa.value.email))
+
+  async function evaluated(resposta: AvaliacaoResposta): Promise<void> {
+    data.value = resposta.recomendacao
+    if (resposta.ajustada) await navigateTo(`/selecao-matriz/${resposta.ajustada.uid}`)
+  }
 
   useHead({ title: () => (data.value?.rocha ? `${text.title} · ${data.value.rocha}` : text.title) })
   useSeoMeta({ robots: 'noindex' })
@@ -29,17 +45,18 @@
         {{ text.back }}
       </NuxtLink>
 
-      <Reveal v-if="data" class="mt-6">
-        <MatrizResult :data="data">
+      <Reveal v-if="coroa" class="mt-6">
+        <MatrizCoroa :key="coroa.uid" :data="coroa">
+          <template v-if="owner" #feedback>
+            <MatrizAvaliacao :data="coroa" @avaliada="evaluated" />
+          </template>
+        </MatrizCoroa>
+      </Reveal>
+
+      <Reveal v-else-if="legada" class="mt-6">
+        <MatrizResult :data="legada">
           <template #actions>
-            <Btn to="https://wa.link/c1di0k" icon="simple-icons:whatsapp">{{ text.talk }}</Btn>
-            <Btn
-              to="/catalogos/catalogo2025.pdf"
-              external
-              variant="ghost"
-              icon="ph:download-simple"
-              >{{ text.catalog }}</Btn
-            >
+            <Btn :to="brand.whatsapp" icon="simple-icons:whatsapp">{{ text.talk }}</Btn>
           </template>
         </MatrizResult>
       </Reveal>

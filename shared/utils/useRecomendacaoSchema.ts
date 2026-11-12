@@ -1,8 +1,10 @@
 // oxlint-disable typescript/explicit-function-return-type typescript/explicit-module-boundary-types harlanzw/vue-no-faux-composables unicorn/max-nested-calls
 import {
+  integer,
   maxLength,
   maxValue,
   minValue,
+  nullish,
   number,
   object,
   optional,
@@ -13,30 +15,48 @@ import {
 } from 'valibot'
 import type { InferInput } from 'valibot'
 
-export const ABRASIVIDADES = ['Baixa', 'Média', 'Alta'] as const
-export const GRANULOMETRIAS = ['Fino', 'Médio', 'Grosso'] as const
+import { UF_SIGLAS } from './ufs'
+
+export const ABRASIVIDADES = ['low', 'medium', 'high'] as const
 export const DIAMETROS = ['BQ', 'NQ', 'NQ2', 'HQ', 'PQ'] as const
-export const FORMACOES = ['Friável / Fraturada', 'Moderada', 'Compacta'] as const
-export const OBJETIVOS = ['Penetração', 'Equilíbrio', 'Vida útil'] as const
+export const TESTEMUNHOS = ['compacta', 'fraturada', 'friavel'] as const
+export const AVALIACOES = ['atendeu', 'ajustada'] as const
+export const PROBLEMAS = ['polindo', 'desgaste', 'lavando', 'outro'] as const
 
 export function useRecomendacaoSchema() {
-  const recomendacaoSchema = object({
-    rocha: optional(pipe(string(), trim(), maxLength(120))),
-    mohs: pipe(
-      number('Selecione a dureza Mohs'),
-      minValue(1, 'Selecione a dureza Mohs'),
-      maxValue(10),
-    ),
-    abrasividade: picklist(ABRASIVIDADES, 'Selecione a abrasividade'),
-    granulometria: picklist(GRANULOMETRIAS, 'Selecione a granulometria'),
-    diametro: picklist(DIAMETROS, 'Selecione o diâmetro'),
-    formacao: picklist(FORMACOES, 'Selecione a formação'),
-    objetivo: picklist(OBJETIVOS, 'Selecione o objetivo'),
+  const recomendacaoSchema = object(
+    {
+      rocha: nullish(pipe(string(), trim(), maxLength(120))),
+      durezaManual: nullish(
+        pipe(
+          number('Defina a dureza'),
+          minValue(1.5, 'A dureza vai de 1,5 a 10'),
+          maxValue(10, 'A dureza vai de 1,5 a 10'),
+        ),
+      ),
+      abrasividade: nullish(picklist(ABRASIVIDADES, 'Escolha a abrasividade')),
+      diametro: picklist(DIAMETROS, 'Escolha o diâmetro da coroa'),
+      testemunho: picklist(TESTEMUNHOS, 'Diga como sai o testemunho'),
+      uf: picklist(UF_SIGLAS, 'Escolha o estado da sondagem'),
+      municipio: pipe(
+        number('Escolha a cidade da sondagem'),
+        integer('Escolha a cidade da sondagem'),
+      ),
+    },
+    'Responda as 4 perguntas',
+  )
+
+  const avaliacaoSchema = object({
+    status: picklist(AVALIACOES, 'Diga se a coroa atendeu'),
+    problema: optional(picklist(PROBLEMAS, 'Diga o que aconteceu no furo')),
   })
 
-  return { recomendacaoSchema }
+  return { recomendacaoSchema, avaliacaoSchema }
 }
 
 export type RecomendacaoSchema = InferInput<
   ReturnType<typeof useRecomendacaoSchema>['recomendacaoSchema']
+>
+export type AvaliacaoSchema = InferInput<
+  ReturnType<typeof useRecomendacaoSchema>['avaliacaoSchema']
 >
