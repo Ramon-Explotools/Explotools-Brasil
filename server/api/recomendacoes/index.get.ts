@@ -2,7 +2,7 @@ export default defineEventHandler(async (event): Promise<RecomendacaoResumo[]> =
   const { email } = await requireLead(event)
 
   const recomendacoes = await Recomendacoes.find({ email })
-    .select('uid rocha matriz diametro versao status createdAt')
+    .select('uid rocha matriz diametro versao status local createdAt')
     .sort({ _id: -1 })
     .limit(20)
     .lean()
@@ -15,6 +15,7 @@ export default defineEventHandler(async (event): Promise<RecomendacaoResumo[]> =
     diametro: rec.diametro ?? '',
     versao: rec.versao ?? 1,
     status: rec.status ?? null,
+    local: rec.local ?? null,
     createdAt: rec.createdAt ?? rec._id.getTimestamp().toISOString(),
   }))
 })

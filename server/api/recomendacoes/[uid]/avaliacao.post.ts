@@ -34,7 +34,7 @@ export default defineEventHandler(async (event): Promise<AvaliacaoResposta> => {
     const input = inputFromEntrada(doc.entrada)
     const rec = recommendCrown(input)
     if (rec && !feedbackDeadEnd(rec, problema)) {
-      ajustada = buildCoroa(email, applyFeedback(input, problema).input, uid)
+      ajustada = buildCoroa(email, applyFeedback(input, problema).input, doc.local ?? null, uid)
     }
   }
 

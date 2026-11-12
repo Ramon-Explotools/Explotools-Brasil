@@ -2,10 +2,8 @@ const { recomendacaoSchema } = useRecomendacaoSchema()
 
 export default defineEventHandler(async (event): Promise<RecomendacaoCoroa> => {
   const { email } = await requireLead(event)
-  const { rocha, durezaManual, abrasividade, diametro, testemunho } = await validBody(
-    event,
-    recomendacaoSchema,
-  )
+  const { rocha, durezaManual, abrasividade, diametro, testemunho, uf, municipio } =
+    await validBody(event, recomendacaoSchema)
 
   const rock = findRock(rocha)
   if (rocha && !rock && durezaManual === undefined) {
@@ -15,13 +13,22 @@ export default defineEventHandler(async (event): Promise<RecomendacaoCoroa> => {
     })
   }
 
-  const recomendacao = buildCoroa(email, {
-    rock,
-    size: diametro,
-    cond: testemunho,
-    manualH: durezaManual ?? null,
-    abra: abrasividade ?? null,
-  })
+  const local = findMunicipio(uf, municipio)
+  if (!local) {
+    throw createError({ status: 400, message: 'Escolha a cidade da sondagem na lista' })
+  }
+
+  const recomendacao = buildCoroa(
+    email,
+    {
+      rock,
+      size: diametro,
+      cond: testemunho,
+      manualH: durezaManual ?? null,
+      abra: abrasividade ?? null,
+    },
+    local,
+  )
 
   await new Recomendacoes(recomendacao)
     .save()

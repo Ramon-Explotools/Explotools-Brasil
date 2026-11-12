@@ -1,5 +1,6 @@
 // oxlint-disable typescript/explicit-function-return-type typescript/explicit-module-boundary-types harlanzw/vue-no-faux-composables unicorn/max-nested-calls
 import {
+  integer,
   maxLength,
   maxValue,
   minValue,
@@ -14,6 +15,8 @@ import {
 } from 'valibot'
 import type { InferInput } from 'valibot'
 
+import { UF_SIGLAS } from './ufs'
+
 export const ABRASIVIDADES = ['low', 'medium', 'high'] as const
 export const DIAMETROS = ['BQ', 'NQ', 'NQ2', 'HQ', 'PQ'] as const
 export const TESTEMUNHOS = ['compacta', 'fraturada', 'friavel'] as const
@@ -21,19 +24,27 @@ export const AVALIACOES = ['atendeu', 'ajustada'] as const
 export const PROBLEMAS = ['polindo', 'desgaste', 'lavando', 'outro'] as const
 
 export function useRecomendacaoSchema() {
-  const recomendacaoSchema = object({
-    rocha: nullish(pipe(string(), trim(), maxLength(120))),
-    durezaManual: nullish(
-      pipe(
-        number('Defina a dureza'),
-        minValue(1.5, 'A dureza vai de 1,5 a 10'),
-        maxValue(10, 'A dureza vai de 1,5 a 10'),
+  const recomendacaoSchema = object(
+    {
+      rocha: nullish(pipe(string(), trim(), maxLength(120))),
+      durezaManual: nullish(
+        pipe(
+          number('Defina a dureza'),
+          minValue(1.5, 'A dureza vai de 1,5 a 10'),
+          maxValue(10, 'A dureza vai de 1,5 a 10'),
+        ),
       ),
-    ),
-    abrasividade: nullish(picklist(ABRASIVIDADES, 'Escolha a abrasividade')),
-    diametro: picklist(DIAMETROS, 'Escolha o diâmetro da coroa'),
-    testemunho: picklist(TESTEMUNHOS, 'Diga como sai o testemunho'),
-  })
+      abrasividade: nullish(picklist(ABRASIVIDADES, 'Escolha a abrasividade')),
+      diametro: picklist(DIAMETROS, 'Escolha o diâmetro da coroa'),
+      testemunho: picklist(TESTEMUNHOS, 'Diga como sai o testemunho'),
+      uf: picklist(UF_SIGLAS, 'Escolha o estado da sondagem'),
+      municipio: pipe(
+        number('Escolha a cidade da sondagem'),
+        integer('Escolha a cidade da sondagem'),
+      ),
+    },
+    'Responda as 4 perguntas',
+  )
 
   const avaliacaoSchema = object({
     status: picklist(AVALIACOES, 'Diga se a coroa atendeu'),

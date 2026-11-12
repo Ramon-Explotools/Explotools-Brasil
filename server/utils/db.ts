@@ -99,6 +99,15 @@ const ResultadoSchema = new Schema(
   { _id: false },
 )
 
+const LocalSchema = new Schema(
+  {
+    uf: { type: String, required: true },
+    cidade: { type: String, required: true },
+    codigoIbge: { type: Number, required: true },
+  },
+  { _id: false },
+)
+
 // Campos da versão antiga ficam opcionais: os documentos antigos continuam abrindo.
 const Recomendacoes = mongoose.model(
   'recomendacao',
@@ -115,6 +124,7 @@ const Recomendacoes = mongoose.model(
     problema: { type: String, required: false, default: null },
     avaliadoEm: { type: String, required: false, default: null },
     parentUid: { type: String, required: false, default: null },
+    local: { type: LocalSchema, required: false, default: null },
     mohs: { type: Number, required: false },
     eqc: { type: Number, required: false },
     cai: { type: Number, required: false },

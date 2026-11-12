@@ -75,6 +75,13 @@ export interface RecomendacaoLegada {
   createdAt?: string
 }
 
+// Onde fica a sondagem (município do IBGE).
+export interface LocalSondagem {
+  uf: string
+  cidade: string
+  codigoIbge: number
+}
+
 export type StatusCoroa = 'aguardando' | 'atendeu' | 'ajustada'
 
 // Recomendação da coroa Explotools (versão 2, escala 1–15). A entrada recalcula a coroa;
@@ -100,6 +107,7 @@ export interface RecomendacaoCoroa {
   problema: string | null
   avaliadoEm: string | null
   parentUid: string | null
+  local: LocalSondagem | null
   createdAt: string
 }
 
@@ -112,7 +120,16 @@ export interface RecomendacaoResumo {
   diametro: string
   versao: number
   status: StatusCoroa | null
+  local: LocalSondagem | null
   createdAt: string
+}
+
+export interface MapaResumo {
+  total: number
+  semLocal: number
+  porUf: { uf: string; total: number }[]
+  cidades: { uf: string; cidade: string; total: number }[]
+  rochasPorUf: Record<string, { rocha: string; total: number }[]>
 }
 
 export interface AvaliacaoResposta {

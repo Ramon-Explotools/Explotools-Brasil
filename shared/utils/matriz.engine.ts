@@ -527,7 +527,7 @@ function fmtBR(value: number): string {
 function quoteDocument(
   rec: CrownRec,
   input: CrownInput,
-  meta: { date?: string; cliente?: string } = {},
+  meta: { date?: string; cliente?: string; local?: string } = {},
 ): string {
   const { ops } = rec
   const lines = ['*PEDIDO DE COTAÇÃO — Coroa Explotools*']
@@ -558,6 +558,7 @@ function quoteDocument(
     `• Granulometria: ${PT.grain[rec.grain]}`,
     `• Testemunho: ${PT.cond[rec.cond]}`,
   )
+  if (meta.local) lines.push(`• Local da sondagem: ${meta.local}`)
   if (rec.fieldShift) {
     lines.push(
       `• Ajuste de campo: Matriz ${rec.baseMatrix.id} → ${rec.matrix.id} após teste no furo`,

@@ -6,6 +6,7 @@ import type { CrownInput } from '#shared/utils/matriz.engine'
 export function buildCoroa(
   email: string,
   input: CrownInput,
+  local: LocalSondagem | null,
   parentUid: string | null = null,
 ): RecomendacaoCoroa {
   const rec = recommendCrown(input)
@@ -37,6 +38,7 @@ export function buildCoroa(
     problema: null,
     avaliadoEm: null,
     parentUid,
+    local,
     createdAt: new Date().toISOString(),
   }
 }
