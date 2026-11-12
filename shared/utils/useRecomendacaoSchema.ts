@@ -18,7 +18,7 @@ import type { InferInput } from 'valibot'
 import { UF_SIGLAS } from './ufs'
 
 export const ABRASIVIDADES = ['low', 'medium', 'high'] as const
-export const DIAMETROS = ['BQ', 'NQ', 'NQ2', 'HQ', 'PQ'] as const
+export const DIAMETROS = ['BO', 'NO', 'NO2', 'HO', 'PO'] as const
 export const TESTEMUNHOS = ['compacta', 'fraturada', 'friavel'] as const
 export const AVALIACOES = ['atendeu', 'ajustada'] as const
 export const PROBLEMAS = ['polindo', 'desgaste', 'lavando', 'outro'] as const

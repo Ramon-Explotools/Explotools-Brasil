@@ -12,7 +12,7 @@ export default defineEventHandler(async (event): Promise<RecomendacaoResumo[]> =
     uid: rec.uid,
     rocha: rec.rocha ?? '',
     matriz: rec.matriz ?? '',
-    diametro: rec.diametro ?? '',
+    diametro: rec.versao === 2 && rec.diametro ? normSize(rec.diametro) : (rec.diametro ?? ''),
     versao: rec.versao ?? 1,
     status: rec.status ?? null,
     local: rec.local ?? null,

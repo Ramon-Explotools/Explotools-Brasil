@@ -10,7 +10,7 @@
 import { CLASSES, findRock } from './rochas'
 import type { Abra, Grain, Rock, RockClass } from './rochas'
 
-type Size = 'BQ' | 'NQ' | 'NQ2' | 'HQ' | 'PQ'
+type Size = 'BO' | 'NO' | 'NO2' | 'HO' | 'PO'
 type Cond = 'compacta' | 'fraturada' | 'friavel'
 type Waterway = 'Standard' | 'Wide' | 'Lateral/Superflush'
 type Problem = 'polindo' | 'desgaste' | 'lavando' | 'outro'
@@ -115,20 +115,20 @@ const MATRICES: Matrix[] = [
   { id: '14-15', lo: 8.12, hi: 10 },
 ]
 
-const SIZES: readonly Size[] = ['BQ', 'NQ', 'NQ2', 'HQ', 'PQ']
+const SIZES: readonly Size[] = ['BO', 'NO', 'NO2', 'HO', 'PO']
 const CONDITIONS: readonly Cond[] = ['compacta', 'fraturada', 'friavel']
-const N_OR_LARGER: Record<Size, boolean> = { BQ: false, NQ: true, NQ2: true, HQ: true, PQ: true }
+const N_OR_LARGER: Record<Size, boolean> = { BO: false, NO: true, NO2: true, HO: true, PO: true }
 
 // Parâmetros por diâmetro — referências de fabricantes (Boart Longyear, Dimatec).
 const DIAMETERS: Record<
   Size,
   { rpm: [number, number]; wob: [number, number]; flow: [number, number] }
 > = {
-  BQ: { rpm: [800, 1600], wob: [10, 24], flow: [20, 35] },
-  NQ: { rpm: [600, 1250], wob: [13, 37], flow: [35, 50] },
-  NQ2: { rpm: [600, 1250], wob: [13, 37], flow: [35, 50] },
-  HQ: { rpm: [400, 1000], wob: [20, 56], flow: [50, 70] },
-  PQ: { rpm: [300, 800], wob: [31, 84], flow: [80, 100] },
+  BO: { rpm: [800, 1600], wob: [10, 24], flow: [20, 35] },
+  NO: { rpm: [600, 1250], wob: [13, 37], flow: [35, 50] },
+  NO2: { rpm: [600, 1250], wob: [13, 37], flow: [35, 50] },
+  HO: { rpm: [400, 1000], wob: [20, 56], flow: [50, 70] },
+  PO: { rpm: [300, 800], wob: [31, 84], flow: [80, 100] },
 }
 
 const WATERWAYS: Record<Waterway, string> = {
@@ -229,13 +229,13 @@ function selectWaterway(cond: Cond, grain: Grain, size: Size): WaterwayChoice {
   else if (big && (cond === 'fraturada' || grain === 'grosso')) type = 'Wide'
   const smallHard = !big && (cond !== 'compacta' || grain === 'grosso')
   if (smallHard) {
-    note = 'Em BQ a indicação é o Standard: os canais Wide e Superflush são para N e maiores.'
+    note = 'Em BO a indicação é o Standard: os canais Wide e Superflush são para N e maiores.'
   }
-  if (type === 'Standard' && (size === 'HQ' || size === 'PQ')) {
+  if (type === 'Standard' && (size === 'HO' || size === 'PO')) {
     note = `O Standard é indicado para N e menores. Em ${size}, se faltar limpeza da face, use o canal Wide.`
   }
   let trigger = 'rocha compacta de grão fino ou médio'
-  if (smallHard) trigger = 'diâmetro BQ'
+  if (smallHard) trigger = 'diâmetro BO'
   else if (cond === 'friavel') trigger = 'formação friável'
   else if (cond === 'fraturada') trigger = 'testemunho fraturado'
   else if (grain === 'grosso') trigger = 'rocha de grão grosso'
@@ -392,7 +392,7 @@ function recommendCrown(input: CrownInput): CrownRec | null {
         }
       : {
           ...waterway,
-          note: 'Em BQ o canal Lateral/Superflush não está disponível: reduza a vazão e a rotação para proteger o testemunho.',
+          note: 'Em BO o canal Lateral/Superflush não está disponível: reduza a vazão e a rotação para proteger o testemunho.',
         }
   }
 
@@ -454,7 +454,7 @@ function applyFeedback(
   return { input: next, contact: Boolean(found.contact) }
 }
 
-// Sem saída na própria coroa (ponta da escala, BQ ou já em Superflush): falar com o técnico.
+// Sem saída na própria coroa (ponta da escala, BO ou já em Superflush): falar com o técnico.
 function feedbackDeadEnd(rec: CrownRec, problem: Problem): boolean {
   if (problem === 'outro') return true
   if (problem === 'polindo') return !rec.adjust.up
@@ -475,7 +475,7 @@ function problemAction(problem: Problem, rec: CrownRec): string {
   }
   if (problem === 'lavando') {
     if (!N_OR_LARGER[rec.size]) {
-      return 'Em BQ não existe Superflush: vamos orientar a redução de vazão e rotação'
+      return 'Em BO não existe Superflush: vamos orientar a redução de vazão e rotação'
     }
     return rec.waterway.type === 'Lateral/Superflush'
       ? 'Já está com Superflush: vamos te pôr em contato com o técnico'
@@ -485,6 +485,12 @@ function problemAction(problem: Problem, rec: CrownRec): string {
 }
 
 /* ---------- Entrada salva (histórico no banco) ---------- */
+// Recomendações salvas antes da troca para a série O (BQ, NQ, HQ…) continuam abrindo.
+function normSize(value: string): Size {
+  const size = value.replace(/^(?<serie>[BNHP])Q/u, '$<serie>O')
+  return SIZES.find((item) => item === size) ?? 'NO'
+}
+
 function makeEntrada(input: CrownInput, rec: CrownRec): Entrada {
   return {
     rocha: input.rock?.n ?? null,
@@ -500,7 +506,7 @@ function makeEntrada(input: CrownInput, rec: CrownRec): Entrada {
 function inputFromEntrada(entrada: Entrada): CrownInput {
   return {
     rock: findRock(entrada.rocha),
-    size: entrada.diametro,
+    size: normSize(entrada.diametro),
     cond: entrada.testemunho,
     manualH: entrada.durezaManual,
     abra: entrada.abrasividade,
@@ -619,6 +625,7 @@ export {
   fieldAdjust,
   fmtBR,
   inputFromEntrada,
+  normSize,
   makeEntrada,
   matrixDecision,
   opNumbers,
